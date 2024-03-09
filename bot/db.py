@@ -6,7 +6,7 @@ Base = declarative_base()
 
 
 class User(Base):
-    __tablename__ = 'users'
+    __tablename__ = "users"
 
     chat_id = Column(Integer, primary_key=True)
     username = Column(String)
@@ -19,12 +19,16 @@ class User(Base):
     rate_type = Column(String)
     is_free = Column(Boolean)
     last_pay_id = Column(String)
+    # ALTER TABLE users ADD COLUMN default_model VARCHAR DEFAULT 'gpt35';
+    default_model = Column(String, default="gpt35")
 
 
 class DB:
     def __init__(self, db_name, user, password, host, port):
         # PostgreSQL
-        self.engine = create_engine(f'postgresql+psycopg2://{user}:{password}@{host}:{port}/{db_name}')
+        self.engine = create_engine(
+            f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{db_name}"
+        )
         Base.metadata.create_all(self.engine)
         self.Session = sessionmaker(bind=self.engine)
 

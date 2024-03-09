@@ -310,7 +310,10 @@ class OpenAIHelper:
                 common_args["model"] = self.config["vision_model"]
             else:
                 if user.rate_type == "gpt-4":
-                    common_args["model"] = "gpt-4"
+                    if user.default_model == "gpt35":
+                        common_args["model"] = "gpt-3.5-turbo"
+                    else:
+                        common_args["model"] = "gpt-4-1106-preview"
                 else:
                     common_args["model"] = "gpt-3.5-turbo"
 

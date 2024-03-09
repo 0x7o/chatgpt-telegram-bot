@@ -63,6 +63,25 @@ from usage_tracker import UsageTracker
 from db import DB
 
 
+def model_keyboard(default_model: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    text="✅ GPT-3.5" if default_model == "gpt35" else "GPT-3.5",
+                    callback_data="change_model_gpt35",
+                ),
+                InlineKeyboardButton(
+                    text="✅ GPT-4 Turbo"
+                    if default_model == "gpt4_turbo"
+                    else "GPT-4 Turbo",
+                    callback_data="change_model_gpt4_turbo",
+                ),
+            ]
+        ]
+    )
+
+
 class ChatGPTTelegramBot:
     """
     Class representing a ChatGPT Telegram Bot.
@@ -89,6 +108,10 @@ class ChatGPTTelegramBot:
             BotCommand(
                 command="support",
                 description=localized_text("support_description", bot_language),
+            ),
+            BotCommand(
+                command="model",
+                description="🤖 Сменить версию модели (только для тарифа GPT-4)",
             ),
             BotCommand(
                 command="reset",
@@ -168,21 +191,21 @@ class ChatGPTTelegramBot:
                 )
             except telegram.error.BadRequest as e:
                 print(e)
+            self.db.create_user(
+                username=update.message.from_user.username,
+                chat_id=update.message.chat_id,
+                gpt35_rate=self.rates["base"]["gpt35_rate"],
+                gpt4_rate=self.rates["base"]["gpt4_rate"],
+                dalle_rate=self.rates["base"]["dalle_rate"],
+                whisper_rate=self.rates["base"]["whisper_rate"],
+                tts_rate=self.rates["base"]["tts_rate"],
+                rate_end_date=datetime.now() + timedelta(days=3),  # Три дня на тестирование
+                rate_type="base",
+                is_free=True,
+            )
 
         else:
             await self.help(update, _)
-        self.db.create_user(
-            username=update.message.from_user.username,
-            chat_id=update.message.chat_id,
-            gpt35_rate=self.rates["base"]["gpt35_rate"],
-            gpt4_rate=self.rates["base"]["gpt4_rate"],
-            dalle_rate=self.rates["base"]["dalle_rate"],
-            whisper_rate=self.rates["base"]["whisper_rate"],
-            tts_rate=self.rates["base"]["tts_rate"],
-            rate_end_date=datetime.now() + timedelta(days=3),  # Три дня на тестирование
-            rate_type="base",
-            is_free=True,
-        )
 
     async def help(self, update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         """
@@ -211,20 +234,25 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
 
 
 <b>Вот что я умею: </b>
-""" + "\n".join(commands_description)
+"""
+            + "\n".join(commands_description)
             + "\n\nИИ-ассистенту можно отправлять голосовые сообщения!\n\nХотите пройти обучение?"
         )
-        await update.message.reply_text(help_text, disable_web_page_preview=True, reply_markup=InlineKeyboardMarkup(
-                        [
-                            [
-                                InlineKeyboardButton(
-                                    f"Пройти обучение",
-                                    callback_data=f"start_2",
-                                ),
-                            ]
-                        ]
-                    ), parse_mode=constants.ParseMode.HTML)
-
+        await update.message.reply_text(
+            help_text,
+            disable_web_page_preview=True,
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            f"Пройти обучение",
+                            callback_data=f"start_2",
+                        ),
+                    ]
+                ]
+            ),
+            parse_mode=constants.ParseMode.HTML,
+        )
 
     async def admin(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """
@@ -284,7 +312,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
         users = self.db.get_all_users()
         user_data = [user.__dict__ for user in users]
         for user in user_data:
-            user.pop('_sa_instance_state', None)  # Remove SQLAlchemy-specific attribute
+            user.pop("_sa_instance_state", None)  # Remove SQLAlchemy-specific attribute
         file_name = f"users_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.xlsx"
         df = pd.DataFrame(user_data)
         df.to_excel(file_name)
@@ -479,9 +507,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
         # Check if image generation is enabled and, if so, generate the image statistics for today
         text_today_images = ""
         if self.config.get("enable_image_generation", False):
-            text_today_images = (
-                f"Изображений: {images_today}\n"
-            )
+            text_today_images = f"Изображений: {images_today}\n"
 
         text_today_vision = ""
         if self.config.get("enable_vision", False):
@@ -489,13 +515,11 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
 
         text_today_tts = ""
         if self.config.get("enable_tts_generation", False):
-            text_today_tts = (
-                f"Символов озвучено: {characters_today}\n"
-            )
+            text_today_tts = f"Символов озвучено: {characters_today}\n"
 
         text_today = (
             f"<b>Использовано СЕГОДНЯ:</b>\n"
-            f"Токенов: {tokens_today+text_today_vision}\n"
+            f"Токенов: {tokens_today + text_today_vision}\n"
             f"{text_today_images}"
             f"{text_today_tts}"
             f"Речь в текст: {transcribe_minutes_today} {localized_text('stats_transcribe', bot_language)[0]} "
@@ -505,20 +529,16 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
 
         text_month_images = ""
         if self.config.get("enable_image_generation", False):
-            text_month_images = (
-                f"Изображений: {images_month}\n"
-            )
+            text_month_images = f"Изображений: {images_month}\n"
 
         text_month_tts = ""
         if self.config.get("enable_tts_generation", False):
-            text_month_tts = (
-                f"Символов озвучено: {characters_month}\n"
-            )
+            text_month_tts = f"Символов озвучено: {characters_month}\n"
 
         # Check if image generation is enabled and, if so, generate the image statistics for the month
         text_month = (
             f"<b>Использовано В ЭТОМ МЕСЯЦЕ:</b>\n"
-            f"Токенов: {tokens_month+vision_month}\n"
+            f"Токенов: {tokens_month + vision_month}\n"
             f"{text_month_images}"  # Include the image statistics for the month if applicable
             f"{text_month_tts}"
             f"Речь в текст: {transcribe_minutes_month} {localized_text('stats_transcribe', bot_language)[0]} "
@@ -532,7 +552,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
             f"<b>📊Вот ваша статистика, {update.message.from_user.first_name}</b>\n\n"
             f"<b>Ваш тариф: {self.rates[user.rate_type]['name']}</b>\n\n"
         )
-        if self.rates[user.rate_type]['gpt4_rate']:
+        if self.rates[user.rate_type]["gpt4_rate"]:
             text_budget += f"<b>Токенов GPT-4 осталось:</b> {user.gpt4_rate} из {self.rates[user.rate_type]['gpt4_rate']}\n"
         text_budget += (
             f"<b>Токенов GPT-3.5 осталось:</b> {user.gpt35_rate} из {self.rates[user.rate_type]['gpt35_rate']}\n"
@@ -625,7 +645,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
             text=f"""Готово, {update.message.from_user.first_name}
 Контекст очищен, и теперь можно начинать общение с нуля.
 
-Чем я могу Вам помочь?"""
+Чем я могу Вам помочь?""",
         )
 
     async def check_rate_limit(
@@ -1318,6 +1338,32 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
             ),
         )
 
+    async def model(self, update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+        """
+        Change model (GPT-3.5 or GPT-4)
+        """
+        user = self.db.get_user(chat_id=update.effective_chat.id)
+        if user.rate_type == "gpt-4":
+            default_model = user.default_model
+            await update.message.reply_text(
+                "🤖 Выберите модель для общения:",
+                reply_markup=model_keyboard(default_model),
+            )
+        else:
+            await update.message.reply_text(
+                "❌ Сменить модель можно только на тарифе GPT-4",
+                reply_markup=InlineKeyboardMarkup(
+                    [
+                        [
+                            InlineKeyboardButton(
+                                "🔄 Обновить тариф",
+                                callback_data="change_rate",
+                            )
+                        ]
+                    ]
+                ),
+            )
+
     async def prompt(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         React to incoming messages and respond accordingly.
@@ -1633,9 +1679,9 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
         ]
         await update.message.reply_text(
             text=(
-                    "*Все тарифы:*\n"
-                    + "".join(rates_text)
-                    + "🙂Пожалуйста, выберите подходящий тариф, и нажмите на одну из кнопок, для перехода к оплате."
+                "*Все тарифы:*\n"
+                + "".join(rates_text)
+                + "🙂Пожалуйста, выберите подходящий тариф, и нажмите на одну из кнопок, для перехода к оплате."
             ),
             parse_mode=constants.ParseMode.MARKDOWN,
             reply_markup=InlineKeyboardMarkup(
@@ -1666,6 +1712,34 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
         bot_language = self.config["bot_language"]
         answer_tr = localized_text("answer", bot_language)
         loading_tr = localized_text("loading", bot_language)
+
+        if callback_data.startswith("change_model_"):
+            model = callback_data.split("change_model_")[-1]
+            user = self.db.get_user(chat_id=update.effective_chat.id)
+            if user.default_model == model:
+                return
+            if user.rate_type != "gpt-4":
+                await update.get_bot().send_message(
+                    text="❌ Сменить модель можно только на тарифе GPT-4",
+                    chat_id=update.callback_query.from_user.id,
+                    reply_markup=InlineKeyboardMarkup(
+                        [
+                            [
+                                InlineKeyboardButton(
+                                    "🔄 Обновить тариф",
+                                    callback_data="change_rate",
+                                )
+                            ]
+                        ]
+                    ),
+                )
+                return
+            self.db.update_user_field(update.effective_chat.id, "default_model", model)
+            await context.bot.editMessageReplyMarkup(
+                message_id=update.callback_query.message.message_id,
+                chat_id=update.effective_chat.id,
+                reply_markup=model_keyboard(model),
+            )
 
         if callback_data.startswith("start_"):
             stage = callback_data.split("start_")[-1]
@@ -1884,7 +1958,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
 Высокой продуктивности, {update.callback_query.from_user.first_name}, на связи 👋"""
                     ),
                     parse_mode=constants.ParseMode.HTML,
-                    chat_id=update.callback_query.from_user.id
+                    chat_id=update.callback_query.from_user.id,
                 )
         if callback_data == "change_rate":
             rates_text = [
@@ -1978,11 +2052,13 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
                         [
                             [
                                 InlineKeyboardButton(
-                                    text="Написать в поддержку", url="https://t.me/maxnagovitsyn"
+                                    text="Написать в поддержку",
+                                    url="https://t.me/maxnagovitsyn",
                                 ),
                                 InlineKeyboardButton(
-                                    text="Проверить оплату", callback_data=f"check_pay{payment_id}"
-                                )
+                                    text="Проверить оплату",
+                                    callback_data=f"check_pay{payment_id}",
+                                ),
                             ]
                         ]
                     ),
@@ -2326,6 +2402,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
         application.add_handler(CommandHandler("mail", self.mail))
         application.add_handler(CommandHandler("image", self.image))
         application.add_handler(CommandHandler("voice", self.tts))
+        application.add_handler(CommandHandler("model", self.model))
         application.add_handler(CommandHandler("support", self.support))
         application.add_handler(CommandHandler("pay", self.pay))
         application.add_handler(CommandHandler("start", self.start))
