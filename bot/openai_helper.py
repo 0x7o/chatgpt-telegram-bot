@@ -7,13 +7,9 @@ import random
 import tiktoken
 
 import openai
-
-import requests
-import json
 import httpx
 import io
-from datetime import date
-from calendar import monthrange
+import json
 from PIL import Image
 
 from tenacity import retry, stop_after_attempt, wait_fixed, retry_if_exception_type
@@ -141,6 +137,8 @@ class OpenAIHelper:
         self.conversations: dict[int:list] = {}  # {chat_id: history}
         self.conversations_vision: dict[int:bool] = {}  # {chat_id: is_vision}
         self.last_updated: dict[int:datetime] = {}  # {chat_id: last_update_timestamp}
+        with open("presets.json", "r") as f:
+            self.presets = json.load(f)
 
     def get_conversation_stats(self, chat_id: int) -> tuple[int, int]:
         """
@@ -699,9 +697,14 @@ class OpenAIHelper:
         """
         Resets the conversation history.
         """
+        user = self.db.get_user(chat_id)
+        preset = self.presets[user.default_preset]
         if content == "":
-            content = self.config["assistant_prompt"]
-        self.conversations[chat_id] = [{"role": "system", "content": content}]
+            content = preset["prompt_start"]
+        self.conversations[chat_id] = [
+            {"role": "system", "content": content},
+            {"role": "assistant", "content": preset["welcome_message"]},
+        ]
         self.conversations_vision[chat_id] = False
 
     def __max_age_reached(self, chat_id) -> bool:

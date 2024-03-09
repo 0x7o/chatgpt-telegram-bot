@@ -21,6 +21,8 @@ class User(Base):
     last_pay_id = Column(String)
     # ALTER TABLE users ADD COLUMN default_model VARCHAR DEFAULT 'gpt35';
     default_model = Column(String, default="gpt35")
+    # ALTER TABLE users ADD COLUMN default_preset VARCHAR DEFAULT 'assistant';
+    default_preset = Column(String, default="assistant")
 
 
 class OpenAIKeys(Base):
