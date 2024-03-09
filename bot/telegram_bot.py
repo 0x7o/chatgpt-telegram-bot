@@ -5,6 +5,7 @@ import hashlib
 import logging
 import os
 import io
+import aiohttp
 import random
 from datetime import datetime, timedelta
 import pandas as pd
@@ -61,6 +62,10 @@ from utils import (
 from openai_helper import OpenAIHelper, localized_text
 from usage_tracker import UsageTracker
 from db import DB
+
+
+def mask_api_key(api_key):
+    return api_key[:6] + "..." + api_key[-4:]
 
 
 def model_keyboard(default_model: str) -> InlineKeyboardMarkup:
@@ -199,7 +204,8 @@ class ChatGPTTelegramBot:
                 dalle_rate=self.rates["base"]["dalle_rate"],
                 whisper_rate=self.rates["base"]["whisper_rate"],
                 tts_rate=self.rates["base"]["tts_rate"],
-                rate_end_date=datetime.now() + timedelta(days=3),  # Три дня на тестирование
+                rate_end_date=datetime.now()
+                + timedelta(days=3),  # Три дня на тестирование
                 rate_type="base",
                 is_free=True,
             )
@@ -278,6 +284,10 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
                 ),
             ),
             BotCommand(
+                command="keys",
+                description="Войти в панель управления ключами от OpenAI API",
+            ),
+            BotCommand(
                 command="change_rate",
                 description=localized_text(
                     "change_rate_description", self.config["bot_language"]
@@ -322,6 +332,100 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
         )
 
         os.remove(file_name)
+
+    async def keys(self, update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+        # Check if the user is an admin
+        if not is_admin(self.config, update.message.from_user.id):
+            await update.message.reply_text(
+                localized_text("admin_disallowed", self.config["bot_language"])
+            )
+            return
+        admin_commands = [
+            BotCommand(
+                command="keys_get", description="Получить список текущих ключей"
+            ),
+            BotCommand(
+                command="keys_delete",
+                description="Удалить ключ (/keys_delete <номер ключа>)",
+            ),
+            BotCommand(
+                command="keys_add", description="Добавить ключ (/keys_add <API ключ>)"
+            ),
+        ]
+        admin_commands_description = [
+            f"/{command.command} - {command.description}" for command in admin_commands
+        ]
+        admin_text = "\n".join(admin_commands_description)
+        await update.message.reply_text(admin_text, disable_web_page_preview=True)
+
+    async def keys_get(self, update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+        # Check if the user is an admin
+        if not is_admin(self.config, update.message.from_user.id):
+            await update.message.reply_text(
+                localized_text("admin_disallowed", self.config["bot_language"])
+            )
+            return
+        keys = self.db.get_all_keys()
+        keys_text = "🔑 Текущие ключи:\n\n"
+        for key in keys:
+            keys_text += f"{key.id}. <code>{mask_api_key(key.api_key)}</code>\n"
+        await update.message.reply_text(keys_text, parse_mode=constants.ParseMode.HTML)
+
+    async def keys_delete(self, update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+        if not is_admin(self.config, update.message.from_user.id):
+            await update.message.reply_text(
+                localized_text("admin_disallowed", self.config["bot_language"])
+            )
+            return
+        key_id = (
+            update.message.text.split()[1]
+            if len(update.message.text.split()) > 1
+            else None
+        )
+        if key_id is None:
+            await update.message.reply_text(
+                "Пожалуйста, укажите ID ключа для удаления."
+            )
+            return
+        key = self.db.get_key_by_id(key_id)
+        if key is None:
+            await update.message.reply_text(f"Ключ с ID {key_id} не найден.")
+            return
+        self.db.delete_key(key_id)
+        await update.message.reply_text(f"Ключ с ID {key_id} успешно удален.")
+
+    async def keys_add(self, update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+        if not is_admin(self.config, update.message.from_user.id):
+            await update.message.reply_text(
+                localized_text("admin_disallowed", self.config["bot_language"])
+            )
+            return
+        api_key = (
+            update.message.text.split()[1]
+            if len(update.message.text.split()) > 1
+            else None
+        )
+        if api_key is None:
+            await update.message.reply_text(
+                "Пожалуйста, укажите API ключ для добавления."
+            )
+            return
+        url = "https://api.openai.com/v1/models"
+        headers = {"Authorization": f"Bearer {api_key}"}
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=headers) as response:
+                if response.status == 200:
+                    key = self.db.add_key(api_key)
+                    await update.message.reply_text(f"Ключ успешно добавлен.")
+                elif response.status == 401:
+                    await update.message.reply_text(
+                        "Неверный API ключ. Пожалуйста, проверьте правильность ключа."
+                    )
+                else:
+                    error_message = await response.text()
+                    await update.message.reply_text(
+                        f"Ошибка при проверке API ключа: {error_message}"
+                    )
 
     async def mail(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """
@@ -410,6 +514,13 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
         Changes the rate for a user. The first argument is user_id (integer) or username (string),
         the second is the rate number from four options (1, 2, 3, 4). Example: /change_rate username 2
         """
+        # Check if the user is an admin
+        if not is_admin(self.config, update.message.from_user.id):
+            await update.message.reply_text(
+                localized_text("admin_disallowed", self.config["bot_language"])
+            )
+            return
+
         args = update.message.text.split()
         if len(args) != 3:
             await update.message.reply_text(
@@ -2410,6 +2521,11 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
         application.add_handler(CommandHandler("resend", self.resend))
         application.add_handler(CommandHandler("change_rate", self.change_rate))
         application.add_handler(CommandHandler("admin", self.admin))
+        application.add_handler(CommandHandler("keys", self.keys))
+        application.add_handler(CommandHandler("keys_get", self.keys_get))
+        # application.add_handler(CommandHandler("keys_balance", self.keys_balance))
+        application.add_handler(CommandHandler("keys_delete", self.keys_delete))
+        application.add_handler(CommandHandler("keys_add", self.keys_add))
         application.add_handler(
             CommandHandler(
                 "chat",

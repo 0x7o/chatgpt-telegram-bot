@@ -23,6 +23,13 @@ class User(Base):
     default_model = Column(String, default="gpt35")
 
 
+class OpenAIKeys(Base):
+    __tablename__ = "openai_keys"
+
+    id = Column(Integer, primary_key=True)
+    api_key = Column(String)
+
+
 class DB:
     def __init__(self, db_name, user, password, host, port):
         # PostgreSQL
@@ -38,6 +45,32 @@ class DB:
         session.add(user)
         session.commit()
         return user
+
+    def add_key(self, api_key, **kwargs):
+        session = self.Session()
+        key = OpenAIKeys(api_key=api_key, **kwargs)
+        session.add(key)
+        session.commit()
+        return key
+
+    def get_all_keys(self):
+        session = self.Session()
+        keys = session.query(OpenAIKeys).all()
+        session.close()
+        return keys
+
+    def get_key_by_id(self, idx):
+        session = self.Session()
+        key = session.query(OpenAIKeys).filter_by(id=idx).first()
+        session.close()
+        return key
+
+    def delete_key(self, idx):
+        session = self.Session()
+        key = session.query(OpenAIKeys).filter_by(id=idx).first()
+        session.delete(key)
+        session.commit()
+        session.close()
 
     def get_user(self, chat_id=None, username=None):
         session = self.Session()

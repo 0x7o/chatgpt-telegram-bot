@@ -2,6 +2,7 @@ from __future__ import annotations
 import datetime
 import logging
 import os
+import random
 
 import tiktoken
 
@@ -111,6 +112,17 @@ def localized_text(key, bot_language):
             return key
 
 
+def get_client(db, config):
+    """
+    Returns an OpenAI client.
+    """
+    http_client = (
+        httpx.AsyncClient(proxies=config["proxy"]) if "proxy" in config else None
+    )
+    api_key = random.choice(db.get_all_keys()).api_key
+    return openai.AsyncOpenAI(api_key=api_key, http_client=http_client)
+
+
 class OpenAIHelper:
     """
     ChatGPT helper class.
@@ -123,12 +135,6 @@ class OpenAIHelper:
         :param plugin_manager: The plugin manager
         :param db: DB object
         """
-        http_client = (
-            httpx.AsyncClient(proxies=config["proxy"]) if "proxy" in config else None
-        )
-        self.client = openai.AsyncOpenAI(
-            api_key=config["api_key"], http_client=http_client
-        )
         self.config = config
         self.db = db
         self.plugin_manager = plugin_manager
@@ -325,7 +331,9 @@ class OpenAIHelper:
                 if len(functions) > 0:
                     common_args["functions"] = self.plugin_manager.get_functions_specs()
                     common_args["function_call"] = "auto"
-            return await self.client.chat.completions.create(**common_args)
+            return await get_client(self.db, self.config).chat.completions.create(
+                **common_args
+            )
 
         except openai.RateLimitError as e:
             raise e
@@ -397,7 +405,7 @@ class OpenAIHelper:
         self.__add_function_call_to_history(
             chat_id=chat_id, function_name=function_name, content=function_response
         )
-        response = await self.client.chat.completions.create(
+        response = await get_client(self.db, self.config).chat.completions.create(
             model=self.config["model"],
             messages=self.conversations[chat_id],
             functions=self.plugin_manager.get_functions_specs(),
@@ -418,7 +426,7 @@ class OpenAIHelper:
         """
         bot_language = self.config["bot_language"]
         try:
-            response = await self.client.images.generate(
+            response = await get_client(self.db, self.config).images.generate(
                 prompt=prompt,
                 n=1,
                 model=self.config["image_model"],
@@ -448,7 +456,7 @@ class OpenAIHelper:
         """
         bot_language = self.config["bot_language"]
         try:
-            response = await self.client.audio.speech.create(
+            response = await get_client(self.db, self.config).audio.speech.create(
                 model=self.config["tts_model"],
                 voice=self.config["tts_voice"],
                 input=text,
@@ -471,7 +479,9 @@ class OpenAIHelper:
         try:
             with open(filename, "rb") as audio:
                 prompt_text = self.config["whisper_prompt"]
-                result = await self.client.audio.transcriptions.create(
+                result = await get_client(
+                    self.db, self.config
+                ).audio.transcriptions.create(
                     model="whisper-1", file=audio, prompt=prompt_text
                 )
                 return result.text
@@ -564,7 +574,9 @@ class OpenAIHelper:
             #         common_args['functions'] = self.plugin_manager.get_functions_specs()
             #         common_args['function_call'] = 'auto'
 
-            return await self.client.chat.completions.create(**common_args)
+            return await get_client(self.db, self.config).chat.completions.create(
+                **common_args
+            )
 
         except openai.RateLimitError as e:
             raise e
@@ -735,7 +747,7 @@ class OpenAIHelper:
             },
             {"role": "user", "content": str(conversation)},
         ]
-        response = await self.client.chat.completions.create(
+        response = await get_client(self.db, self.config).chat.completions.create(
             model=self.config["model"], messages=messages, temperature=0.4
         )
         return response.choices[0].message.content
