@@ -205,7 +205,7 @@ def main():
     )
     plugin_manager = PluginManager(config=plugin_config)
     openai_helper = OpenAIHelper(
-        config=openai_config, plugin_manager=plugin_manager, db=db
+        config=openai_config, plugin_manager=plugin_manager, db=db, telegram_config=telegram_config
     )
     telegram_bot = ChatGPTTelegramBot(
         config=telegram_config, openai=openai_helper, db=db, rates=rates

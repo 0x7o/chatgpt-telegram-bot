@@ -4,6 +4,7 @@ import logging
 import os
 import random
 
+import requests
 import tiktoken
 
 import openai
@@ -107,16 +108,39 @@ def localized_text(key, bot_language):
             # return key as text
             return key
 
+def mask_api_key(api_key):
+    return api_key[:6] + "..." + api_key[-4:]
 
-def get_client(db, config):
+def get_client(db, config, telegram_config):
     """
     Returns an OpenAI client.
     """
     http_client = (
         httpx.AsyncClient(proxies=config["proxy"]) if "proxy" in config else None
     )
-    api_key = random.choice(db.get_all_keys()).api_key
-    return openai.AsyncOpenAI(api_key=api_key, http_client=http_client)
+    keys = db.get_all_keys()
+    random.shuffle(keys)
+
+    for key in keys:
+        idx = key.id
+        key = key.api_key
+        r = requests.get(
+            "https://api.openai.com/v1/models",
+            headers={"Authorization": f"Bearer {key}"},
+        )
+        if r.status_code == 200:
+            return openai.AsyncOpenAI(api_key=key, http_client=http_client)
+        else:
+            logging.warning(f"API key {key} is invalid")
+            chat_id = telegram_config["admin_group_id"]
+            token = telegram_config['token']
+            requests.post(
+                f"https://api.telegram.org/bot{token}/sendMessage",
+                data={
+                    "chat_id": chat_id,
+                    "text": f"🔑😳 Ключ {idx} {mask_api_key(key)} выдал ошибку {r.status_code}, проверьте его",
+                },
+            )
 
 
 class OpenAIHelper:
@@ -124,7 +148,7 @@ class OpenAIHelper:
     ChatGPT helper class.
     """
 
-    def __init__(self, config: dict, plugin_manager: PluginManager, db: DB):
+    def __init__(self, config: dict, plugin_manager: PluginManager, db: DB, telegram_config:dict):
         """
         Initializes the OpenAI helper class with the given configuration.
         :param config: A dictionary containing the GPT configuration
@@ -137,6 +161,7 @@ class OpenAIHelper:
         self.conversations: dict[int:list] = {}  # {chat_id: history}
         self.conversations_vision: dict[int:bool] = {}  # {chat_id: is_vision}
         self.last_updated: dict[int:datetime] = {}  # {chat_id: last_update_timestamp}
+        self.telegram_config = telegram_config
         with open("presets.json", "r") as f:
             self.presets = json.load(f)
 
@@ -329,7 +354,7 @@ class OpenAIHelper:
                 if len(functions) > 0:
                     common_args["functions"] = self.plugin_manager.get_functions_specs()
                     common_args["function_call"] = "auto"
-            return await get_client(self.db, self.config).chat.completions.create(
+            return await get_client(self.db, self.config, self.telegram_config).chat.completions.create(
                 **common_args
             )
 
@@ -403,7 +428,7 @@ class OpenAIHelper:
         self.__add_function_call_to_history(
             chat_id=chat_id, function_name=function_name, content=function_response
         )
-        response = await get_client(self.db, self.config).chat.completions.create(
+        response = await get_client(self.db, self.config, self.telegram_config).chat.completions.create(
             model=self.config["model"],
             messages=self.conversations[chat_id],
             functions=self.plugin_manager.get_functions_specs(),
@@ -424,7 +449,7 @@ class OpenAIHelper:
         """
         bot_language = self.config["bot_language"]
         try:
-            response = await get_client(self.db, self.config).images.generate(
+            response = await get_client(self.db, self.config, self.telegram_config).images.generate(
                 prompt=prompt,
                 n=1,
                 model=self.config["image_model"],
@@ -454,7 +479,7 @@ class OpenAIHelper:
         """
         bot_language = self.config["bot_language"]
         try:
-            response = await get_client(self.db, self.config).audio.speech.create(
+            response = await get_client(self.db, self.config, self.telegram_config).audio.speech.create(
                 model=self.config["tts_model"],
                 voice=self.config["tts_voice"],
                 input=text,
@@ -572,7 +597,7 @@ class OpenAIHelper:
             #         common_args['functions'] = self.plugin_manager.get_functions_specs()
             #         common_args['function_call'] = 'auto'
 
-            return await get_client(self.db, self.config).chat.completions.create(
+            return await get_client(self.db, self.config, self.telegram_config).chat.completions.create(
                 **common_args
             )
 
@@ -750,7 +775,7 @@ class OpenAIHelper:
             },
             {"role": "user", "content": str(conversation)},
         ]
-        response = await get_client(self.db, self.config).chat.completions.create(
+        response = await get_client(self.db, self.config, self.telegram_config).chat.completions.create(
             model=self.config["model"], messages=messages, temperature=0.4
         )
         return response.choices[0].message.content
