@@ -15,6 +15,7 @@ Pillow~=10.1.0
 psycopg2
 pandas~=1.5.3
 openpyxl
+sqlalchemy
 
 typing~=3.7.4.3
 xmltodict~=0.13.0
