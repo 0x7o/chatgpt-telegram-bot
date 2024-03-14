@@ -8,6 +8,7 @@ import os
 import io
 import aiohttp
 import random
+from replicate import Replicate
 from datetime import datetime, timedelta
 import pandas as pd
 
@@ -105,6 +106,7 @@ class ChatGPTTelegramBot:
         self.openai = openai
         self.db = db
         self.rates = rates
+        self.replicate = Replicate(api_key=config["replicate_token"])
         bot_language = self.config["bot_language"]
         with open("presets.json", "r") as f:
             self.presets = json.load(f)
@@ -120,6 +122,18 @@ class ChatGPTTelegramBot:
             BotCommand(
                 command="model",
                 description="🤖 Сменить версию модели (только для тарифа GPT-4)",
+            ),
+            BotCommand(
+                command="sdxl",
+                description="🖼 Создать изображением со Stable Diffusion XL",
+            ),
+            BotCommand(
+                command="sticker",
+                description="😂 Создавайте стикеры с помощью AI",
+            ),
+            BotCommand(
+                command="bg",
+                description="🤪 Удалить фон с изображения"
             ),
             BotCommand(
                 command="reset",
@@ -157,11 +171,11 @@ class ChatGPTTelegramBot:
             )
 
         self.group_commands = [
-            BotCommand(
-                command="chat",
-                description=localized_text("chat_description", bot_language),
-            )
-        ] + self.commands
+                                  BotCommand(
+                                      command="chat",
+                                      description=localized_text("chat_description", bot_language),
+                                  )
+                              ] + self.commands
         self.disallowed_message = localized_text("disallowed", bot_language)
         self.budget_limit_message = localized_text("budget_limit", bot_language)
         self.usage = {}
@@ -209,7 +223,7 @@ class ChatGPTTelegramBot:
                 whisper_rate=self.rates["base"]["whisper_rate"],
                 tts_rate=self.rates["base"]["tts_rate"],
                 rate_end_date=datetime.now()
-                + timedelta(days=3),  # Три дня на тестирование
+                              + timedelta(days=3),  # Три дня на тестирование
                 rate_type="base",
                 is_free=True,
             )
@@ -230,7 +244,7 @@ class ChatGPTTelegramBot:
                 f"/admin - {localized_text('admin_description', self.config['bot_language'])}"
             )
         help_text = (
-            f"""{update.message.from_user.first_name}, я твой ИИ-ассистент “Нейроскрайб”
+                f"""{update.message.from_user.first_name}, я твой ИИ-ассистент “Нейроскрайб”
 
 <b>Инструкции: </b>
 👉🏻 Как правильно пользоваться ботом и получить лучшие результаты
@@ -245,8 +259,8 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
 
 <b>Вот что я умею: </b>
 """
-            + "\n".join(commands_description)
-            + "\n\nИИ-ассистенту можно отправлять голосовые сообщения!\n\nХотите пройти обучение?"
+                + "\n".join(commands_description)
+                + "\n\nИИ-ассистенту можно отправлять голосовые сообщения!\n\nХотите пройти обучение?"
         )
         await update.message.reply_text(
             help_text,
@@ -764,7 +778,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
         )
 
     async def check_rate_limit(
-        self, update: Update, chat_id: int, rate_type: str = None
+            self, update: Update, chat_id: int, rate_type: str = None
     ):
         user = self.db.get_user(chat_id=chat_id)
         okay = True
@@ -826,6 +840,98 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
             )
             okay = False
         return user, okay
+
+    async def sticker(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        image_query = message_text(update.message)
+        if image_query == "":
+            await update.effective_message.reply_text(
+                message_thread_id=get_thread_id(update),
+                text="""🎨 Для генерации стикера, пожалуйста, <b>введите запрос используя команду /sticker
+
+Например:</b> /sticker a cat""",
+                parse_mode=constants.ParseMode.HTML,
+            )
+            return
+        image_url = self.replicate.run(
+            "6443cc831f51eb01333f50b757157411d7cadb6215144cc721e3688b70004ad0",
+            {
+                "steps": 20,
+                "width": 1024,
+                "height": 1024,
+                "prompt": image_query,
+                "upscale": False,
+                "upscale_steps": 10,
+                "negative_prompt": "",
+            },
+        )
+        # send image to user
+        await update.effective_message.reply_photo(
+            reply_to_message_id=get_reply_to_message_id(self.config, update),
+            photo=image_url[1],
+        )
+        return
+
+    async def bg(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not update.message.photo:
+            await update.effective_message.reply_text(
+                message_thread_id=get_thread_id(update),
+                text="""🖼️ Для удаления фона, пожалуйста, <b>отправьте фотографию с командой /bg в подписи</b>""",
+                parse_mode=constants.ParseMode.HTML,
+            )
+            return
+
+        photo = update.message.photo[-1]
+        photo_file = await context.bot.get_file(photo.file_id)
+        photo_url = photo_file.file_path
+
+        image_url = self.replicate.run(
+            "f91971acb059a5b9e29bf3ad451c9bc4dc807a719427037a6623302ddc598e35",
+            {
+                "image": photo_url
+            },
+        )[0]
+        # send image to user
+        await update.effective_message.reply_photo(
+            reply_to_message_id=get_reply_to_message_id(self.config, update),
+            photo=image_url,
+        )
+        return
+
+    async def sdxl(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        image_query = message_text(update.message)
+        if image_query == "":
+            await update.effective_message.reply_text(
+                message_thread_id=get_thread_id(update),
+                text="""🎨 Для генерации изображений, пожалуйста, <b>введите запрос используя команду /sdxl
+
+    Например:</b> /sdxl a cat""",
+                parse_mode=constants.ParseMode.HTML,
+            )
+            return
+        image_url = self.replicate.run(
+            "39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
+            {
+                "width": 768,
+                "height": 768,
+                "prompt": image_query,
+                "refine": "expert_ensemble_refiner",
+                "scheduler": "K_EULER",
+                "lora_scale": 0.6,
+                "num_outputs": 1,
+                "guidance_scale": 7.5,
+                "apply_watermark": False,
+                "high_noise_frac": 0.8,
+                "negative_prompt": "",
+                "prompt_strength": 0.8,
+                "num_inference_steps": 25,
+            },
+        )[0]
+        # send image to user
+        await update.effective_message.reply_photo(
+            reply_to_message_id=get_reply_to_message_id(self.config, update),
+            photo=image_url,
+        )
+        return
 
     async def image(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
@@ -896,8 +1002,8 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
                 )
                 # add guest chat request to guest usage tracker
                 if (
-                    str(user_id) not in self.config["allowed_user_ids"].split(",")
-                    and "guests" in self.usage
+                        str(user_id) not in self.config["allowed_user_ids"].split(",")
+                        and "guests" in self.usage
                 ):
                     self.usage["guests"].add_image_request(
                         image_size, self.config["image_prices"]
@@ -972,8 +1078,8 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
                 )
                 # add guest chat request to guest usage tracker
                 if (
-                    str(user_id) not in self.config["allowed_user_ids"].split(",")
-                    and "guests" in self.usage
+                        str(user_id) not in self.config["allowed_user_ids"].split(",")
+                        and "guests" in self.usage
                 ):
                     self.usage["guests"].add_tts_request(
                         text_length, self.config["tts_model"], self.config["tts_prices"]
@@ -1109,8 +1215,8 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
                 )
 
                 if (
-                    self.config["voice_reply_transcript"]
-                    and not response_to_transcription
+                        self.config["voice_reply_transcript"]
+                        and not response_to_transcription
                 ):
                     # Split into chunks of 4096 characters (Telegram's message limit)
                     transcript_output = f"_{localized_text('transcript', bot_language)}:_\n\"{transcript}\""
@@ -1204,6 +1310,10 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
             await self.mail(update, context)
             return
 
+        if update.message.caption and update.message.caption.startswith("/bg"):
+            await self.bg(update, context)
+            return
+
         # Проверяем действительность тарифа
         user, okay = await self.check_rate_limit(
             update, update.effective_chat.id, "gpt4_rate"
@@ -1222,8 +1332,8 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
             else:
                 trigger_keyword = self.config["group_trigger_keyword"]
                 if (prompt is None and trigger_keyword != "") or (
-                    prompt is not None
-                    and not prompt.lower().startswith(trigger_keyword.lower())
+                        prompt is not None
+                        and not prompt.lower().startswith(trigger_keyword.lower())
                 ):
                     logging.info(
                         f"Vision coming from group chat with wrong keyword, ignoring..."
@@ -1340,8 +1450,8 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
                             continue
 
                     elif (
-                        abs(len(content) - len(prev)) > cutoff
-                        or tokens != "not_finished"
+                            abs(len(content) - len(prev)) > cutoff
+                            or tokens != "not_finished"
                     ):
                         prev = content
 
@@ -1480,7 +1590,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
             )
 
     async def assistant(
-        self, update: Update, _: ContextTypes.DEFAULT_TYPE, page=None, message=None
+            self, update: Update, _: ContextTypes.DEFAULT_TYPE, page=None, message=None
     ) -> None:
         user = self.db.get_user(chat_id=update.effective_chat.id)
         presets = self.presets
@@ -1576,21 +1686,21 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
             trigger_keyword = self.config["group_trigger_keyword"]
 
             if prompt.lower().startswith(
-                trigger_keyword.lower()
+                    trigger_keyword.lower()
             ) or update.message.text.lower().startswith("/chat"):
                 if prompt.lower().startswith(trigger_keyword.lower()):
-                    prompt = prompt[len(trigger_keyword) :].strip()
+                    prompt = prompt[len(trigger_keyword):].strip()
 
                 if (
-                    update.message.reply_to_message
-                    and update.message.reply_to_message.text
-                    and update.message.reply_to_message.from_user.id != context.bot.id
+                        update.message.reply_to_message
+                        and update.message.reply_to_message.text
+                        and update.message.reply_to_message.from_user.id != context.bot.id
                 ):
                     prompt = f'"{update.message.reply_to_message.text}" {prompt}'
             else:
                 if (
-                    update.message.reply_to_message
-                    and update.message.reply_to_message.from_user.id == context.bot.id
+                        update.message.reply_to_message
+                        and update.message.reply_to_message.from_user.id == context.bot.id
                 ):
                     logging.info("Message is a reply to the bot, allowing...")
                 else:
@@ -1670,8 +1780,8 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
                             continue
 
                     elif (
-                        abs(len(content) - len(prev)) > cutoff
-                        or tokens != "not_finished"
+                            abs(len(content) - len(prev)) > cutoff
+                            or tokens != "not_finished"
                     ):
                         prev = content
 
@@ -1776,7 +1886,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
             )
 
     async def inline_query(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+            self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
         """
         Handle the inline query. This is run when you type: @botusername <query>
@@ -1785,7 +1895,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
         if len(query) < 3:
             return
         if not await self.check_allowed_and_within_budget(
-            update, context, is_inline=True
+                update, context, is_inline=True
         ):
             return
 
@@ -1799,7 +1909,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
         )
 
     async def send_inline_query_result(
-        self, update: Update, result_id, message_content, callback_data=""
+            self, update: Update, result_id, message_content, callback_data=""
     ):
         """
         Send inline query result
@@ -1825,7 +1935,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
                 input_message_content=InputTextMessageContent(message_content),
                 description=message_content,
                 thumb_url="https://user-images.githubusercontent.com/11541888/223106202-7576ff11-2c8e-408d-94ea"
-                "-b02a7a32149a.png",
+                          "-b02a7a32149a.png",
                 reply_markup=reply_markup,
             )
 
@@ -1854,9 +1964,9 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
         ]
         await update.message.reply_text(
             text=(
-                "*Все тарифы:*\n"
-                + "".join(rates_text)
-                + "🙂Пожалуйста, выберите подходящий тариф, и нажмите на одну из кнопок, для перехода к оплате."
+                    "*Все тарифы:*\n"
+                    + "".join(rates_text)
+                    + "🙂Пожалуйста, выберите подходящий тариф, и нажмите на одну из кнопок, для перехода к оплате."
             ),
             parse_mode=constants.ParseMode.MARKDOWN,
             reply_markup=InlineKeyboardMarkup(
@@ -1873,7 +1983,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
         )
 
     async def handle_callback_inline_query(
-        self, update: Update, context: CallbackContext
+            self, update: Update, context: CallbackContext
     ):
         """
         Handle the callback query from the inline query result
@@ -2174,9 +2284,9 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
             ]
             await update.get_bot().send_message(
                 text=(
-                    "*Все тарифы:*\n"
-                    + "".join(rates_text)
-                    + "🙂Пожалуйста, выберите подходящий тариф, и нажмите на одну из кнопок, для перехода к оплате."
+                        "*Все тарифы:*\n"
+                        + "".join(rates_text)
+                        + "🙂Пожалуйста, выберите подходящий тариф, и нажмите на одну из кнопок, для перехода к оплате."
                 ),
                 chat_id=update.callback_query.from_user.id,
                 parse_mode=constants.ParseMode.MARKDOWN,
@@ -2199,7 +2309,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
         if callback_data.startswith("buy_rate"):
             rate_number = int(callback_data.split("buy_rate")[-1])
             rate = self.rates[list(self.rates.keys())[rate_number]]
-            inv_id = random.randint(0, 2**31 - 1)
+            inv_id = random.randint(0, 2 ** 31 - 1)
             inv_desc = f"Покупка тарифа {rate_number}"
             crc = hashlib.md5(
                 f"{mrh_login}:{rate['price']}:{inv_id}:{mrh_pass1}".encode()
@@ -2265,9 +2375,9 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
             if result["OperationStateResponse"]["State"]["Code"] == "100":
                 try:
                     if payment_id == int(
-                        self.db.get_user(
-                            chat_id=update.callback_query.from_user.id
-                        ).__dict__["last_pay_id"]
+                            self.db.get_user(
+                                chat_id=update.callback_query.from_user.id
+                            ).__dict__["last_pay_id"]
                     ):
                         await update.get_bot().send_message(
                             chat_id=update.callback_query.from_user.id,
@@ -2306,16 +2416,16 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
                     )
                     if update.callback_query.from_user.username:
                         text = (
-                            "Пользователь @"
-                            + update.callback_query.from_user.username
-                            + f" купил тариф {rate_type} за {summ} руб."
+                                "Пользователь @"
+                                + update.callback_query.from_user.username
+                                + f" купил тариф {rate_type} за {summ} руб."
                         )
                     else:
                         chat_id = update.callback_query.from_user.id
                         text = (
-                            "Пользователь с chat_id "
-                            + str(chat_id)
-                            + f" купил тариф {rate_type} за {summ} руб."
+                                "Пользователь с chat_id "
+                                + str(chat_id)
+                                + f" купил тариф {rate_type} за {summ} руб."
                         )
 
                     await update.get_bot().send_message(
@@ -2393,8 +2503,8 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
                                 continue
 
                         elif (
-                            abs(len(content) - len(prev)) > cutoff
-                            or tokens != "not_finished"
+                                abs(len(content) - len(prev)) > cutoff
+                                or tokens != "not_finished"
                         ):
                             prev = content
                             try:
@@ -2500,7 +2610,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
             )
 
     async def check_allowed_and_within_budget(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE, is_inline=False
+            self, update: Update, context: ContextTypes.DEFAULT_TYPE, is_inline=False
     ) -> bool:
         """
         Checks if the user is allowed to use the bot and if they are within their budget
@@ -2534,7 +2644,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
         return True
 
     async def send_disallowed_message(
-        self, update: Update, _: ContextTypes.DEFAULT_TYPE, is_inline=False
+            self, update: Update, _: ContextTypes.DEFAULT_TYPE, is_inline=False
     ):
         """
         Sends the disallowed message to the user.
@@ -2552,7 +2662,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
             )
 
     async def send_budget_reached_message(
-        self, update: Update, _: ContextTypes.DEFAULT_TYPE, is_inline=False
+            self, update: Update, _: ContextTypes.DEFAULT_TYPE, is_inline=False
     ):
         """
         Sends the budget reached message to the user.
@@ -2603,6 +2713,9 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
         application.add_handler(CommandHandler("model", self.model))
         application.add_handler(CommandHandler("assistant", self.assistant))
         application.add_handler(CommandHandler("support", self.support))
+        application.add_handler(CommandHandler("sdxl", self.sdxl))
+        application.add_handler(CommandHandler("bg", self.bg))
+        application.add_handler(CommandHandler("sticker", self.sticker))
         application.add_handler(CommandHandler("pay", self.pay))
         application.add_handler(CommandHandler("start", self.start))
         application.add_handler(CommandHandler("stats", self.stats))

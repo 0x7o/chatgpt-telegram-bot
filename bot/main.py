@@ -140,6 +140,7 @@ def main():
         "token": os.environ["TELEGRAM_BOT_TOKEN"],
         "admin_user_ids": os.environ.get("ADMIN_USER_IDS", "-"),
         "admin_group_id": os.environ.get("ADMIN_GROUP_ID", "-"),
+        "replicate_token": os.environ.get("REPLICATE_TOKEN", "-"),
         "robokassa_password": os.environ.get("ROBOKASSA_PASSWORD", "-"),
         "robokassa_password2": os.environ.get("ROBOKASSA_PASSWORD2", "-"),
         "allowed_user_ids": os.environ.get("ALLOWED_TELEGRAM_USER_IDS", "*"),
@@ -205,7 +206,10 @@ def main():
     )
     plugin_manager = PluginManager(config=plugin_config)
     openai_helper = OpenAIHelper(
-        config=openai_config, plugin_manager=plugin_manager, db=db, telegram_config=telegram_config
+        config=openai_config,
+        plugin_manager=plugin_manager,
+        db=db,
+        telegram_config=telegram_config,
     )
     telegram_bot = ChatGPTTelegramBot(
         config=telegram_config, openai=openai_helper, db=db, rates=rates

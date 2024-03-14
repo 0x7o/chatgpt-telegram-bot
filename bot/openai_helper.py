@@ -108,8 +108,10 @@ def localized_text(key, bot_language):
             # return key as text
             return key
 
+
 def mask_api_key(api_key):
     return api_key[:6] + "..." + api_key[-4:]
+
 
 def get_client(db, config, telegram_config):
     """
@@ -133,7 +135,7 @@ def get_client(db, config, telegram_config):
         else:
             logging.warning(f"API key {key} is invalid")
             chat_id = telegram_config["admin_group_id"]
-            token = telegram_config['token']
+            token = telegram_config["token"]
             requests.post(
                 f"https://api.telegram.org/bot{token}/sendMessage",
                 data={
@@ -148,7 +150,9 @@ class OpenAIHelper:
     ChatGPT helper class.
     """
 
-    def __init__(self, config: dict, plugin_manager: PluginManager, db: DB, telegram_config:dict):
+    def __init__(
+        self, config: dict, plugin_manager: PluginManager, db: DB, telegram_config: dict
+    ):
         """
         Initializes the OpenAI helper class with the given configuration.
         :param config: A dictionary containing the GPT configuration
@@ -354,9 +358,9 @@ class OpenAIHelper:
                 if len(functions) > 0:
                     common_args["functions"] = self.plugin_manager.get_functions_specs()
                     common_args["function_call"] = "auto"
-            return await get_client(self.db, self.config, self.telegram_config).chat.completions.create(
-                **common_args
-            )
+            return await get_client(
+                self.db, self.config, self.telegram_config
+            ).chat.completions.create(**common_args)
 
         except openai.RateLimitError as e:
             raise e
@@ -428,7 +432,9 @@ class OpenAIHelper:
         self.__add_function_call_to_history(
             chat_id=chat_id, function_name=function_name, content=function_response
         )
-        response = await get_client(self.db, self.config, self.telegram_config).chat.completions.create(
+        response = await get_client(
+            self.db, self.config, self.telegram_config
+        ).chat.completions.create(
             model=self.config["model"],
             messages=self.conversations[chat_id],
             functions=self.plugin_manager.get_functions_specs(),
@@ -449,7 +455,9 @@ class OpenAIHelper:
         """
         bot_language = self.config["bot_language"]
         try:
-            response = await get_client(self.db, self.config, self.telegram_config).images.generate(
+            response = await get_client(
+                self.db, self.config, self.telegram_config
+            ).images.generate(
                 prompt=prompt,
                 n=1,
                 model=self.config["image_model"],
@@ -479,7 +487,9 @@ class OpenAIHelper:
         """
         bot_language = self.config["bot_language"]
         try:
-            response = await get_client(self.db, self.config, self.telegram_config).audio.speech.create(
+            response = await get_client(
+                self.db, self.config, self.telegram_config
+            ).audio.speech.create(
                 model=self.config["tts_model"],
                 voice=self.config["tts_voice"],
                 input=text,
@@ -597,9 +607,9 @@ class OpenAIHelper:
             #         common_args['functions'] = self.plugin_manager.get_functions_specs()
             #         common_args['function_call'] = 'auto'
 
-            return await get_client(self.db, self.config, self.telegram_config).chat.completions.create(
-                **common_args
-            )
+            return await get_client(
+                self.db, self.config, self.telegram_config
+            ).chat.completions.create(**common_args)
 
         except openai.RateLimitError as e:
             raise e
@@ -775,7 +785,9 @@ class OpenAIHelper:
             },
             {"role": "user", "content": str(conversation)},
         ]
-        response = await get_client(self.db, self.config, self.telegram_config).chat.completions.create(
+        response = await get_client(
+            self.db, self.config, self.telegram_config
+        ).chat.completions.create(
             model=self.config["model"], messages=messages, temperature=0.4
         )
         return response.choices[0].message.content
