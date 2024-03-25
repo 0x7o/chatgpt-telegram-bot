@@ -433,7 +433,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
         async with aiohttp.ClientSession() as session:
             async with session.get(url, headers=headers) as response:
                 if response.status == 200:
-                    key = self.db.add_key(api_key)
+                    self.db.add_key(api_key)
                     await update.message.reply_text(f"Ключ успешно добавлен.")
                 elif response.status == 401:
                     await update.message.reply_text(
