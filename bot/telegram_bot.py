@@ -123,18 +123,18 @@ class ChatGPTTelegramBot:
                 command="model",
                 description="🤖 Сменить версию модели (только для тарифа GPT-4)",
             ),
-            BotCommand(
-                command="sdxl",
-                description="🖼 Создать изображением со Stable Diffusion XL",
-            ),
-            BotCommand(
-                command="sticker",
-                description="😂 Создавайте стикеры с помощью AI",
-            ),
-            BotCommand(
-                command="bg",
-                description="🤪 Удалить фон с изображения"
-            ),
+            # BotCommand(
+            #     command="sdxl",
+            #     description="🖼 Создать изображением со Stable Diffusion XL",
+            # ),
+            # BotCommand(
+            #     command="sticker",
+            #     description="😂 Создавайте стикеры с помощью AI",
+            # ),
+            # BotCommand(
+            #     command="bg",
+            #     description="🤪 Удалить фон с изображения"
+            # ),
             BotCommand(
                 command="reset",
                 description=localized_text("reset_description", bot_language),
@@ -2713,9 +2713,9 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
         application.add_handler(CommandHandler("model", self.model))
         application.add_handler(CommandHandler("assistant", self.assistant))
         application.add_handler(CommandHandler("support", self.support))
-        application.add_handler(CommandHandler("sdxl", self.sdxl))
-        application.add_handler(CommandHandler("bg", self.bg))
-        application.add_handler(CommandHandler("sticker", self.sticker))
+        # application.add_handler(CommandHandler("sdxl", self.sdxl))
+        # application.add_handler(CommandHandler("bg", self.bg))
+        # application.add_handler(CommandHandler("sticker", self.sticker))
         application.add_handler(CommandHandler("pay", self.pay))
         application.add_handler(CommandHandler("start", self.start))
         application.add_handler(CommandHandler("stats", self.stats))
