@@ -482,7 +482,6 @@ class OpenAIHelper:
     async def generate_speech(self, text: str) -> tuple[any, int]:
         """
         Generates an audio from the given text using TTS model.
-        :param prompt: The text to send to the model
         :return: The audio in bytes and the text size
         """
         bot_language = self.config["bot_language"]
@@ -513,7 +512,7 @@ class OpenAIHelper:
             with open(filename, "rb") as audio:
                 prompt_text = self.config["whisper_prompt"]
                 result = await get_client(
-                    self.db, self.config
+                    self.db, self.config, self.telegram_config
                 ).audio.transcriptions.create(
                     model="whisper-1", file=audio, prompt=prompt_text
                 )
