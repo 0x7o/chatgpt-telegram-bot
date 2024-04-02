@@ -95,7 +95,11 @@ class UsageTracker:
         # update usage_history
         if str(today) in self.usage["usage_history"]["chat_tokens"]:
             # add token usage to existing date
-            self.usage["usage_history"]["chat_tokens"][str(today)] += tokens
+            if isinstance(tokens, int):
+                self.usage["usage_history"]["chat_tokens"][str(today)] += tokens
+            else:
+                self.usage["usage_history"]["chat_tokens"][str(today)] += int(tokens)
+            # Commit message: "Fixed bug in token usage"
         else:
             # create new entry for current date
             self.usage["usage_history"]["chat_tokens"][str(today)] = tokens
