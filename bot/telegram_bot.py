@@ -203,11 +203,17 @@ class ChatGPTTelegramBot:
                 ),
             )
             username = update.message.from_user.username
+            first_name = update.message.from_user.first_name
+            last_name = update.message.from_user.last_name
             chat_id = update.message.chat_id
+            text = "Новый пользователь!\n"
+            text += f"Chat ID: {chat_id}\n"
             if username:
-                text = "Новый пользователь: @" + username
-            else:
-                text = "Новый пользователь с chat_id: " + str(chat_id)
+                text += f"Username: {username}\n"
+            if first_name:
+                text += f"Имя: {first_name}\n"
+            if last_name:
+                text += f"Фамилия: {last_name}\n"
             try:
                 await update.get_bot().send_message(
                     chat_id=self.config["admin_group_id"], text=text
@@ -229,6 +235,12 @@ class ChatGPTTelegramBot:
             )
 
         else:
+            if update.message.from_user.username and not self.db.get_user(chat_id=update.message.from_user.id).username:
+                self.db.update_user_field(
+                    chat_id=update.message.from_user.id,
+                    field_name="username",
+                    new_value=update.message.from_user.username
+                )
             await self.help(update, _)
 
     async def help(self, update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
