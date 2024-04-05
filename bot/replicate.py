@@ -31,19 +31,27 @@ class Replicate:
         version: str,
         input: dict,
     ):
-        response = self.post({"version": version, "input": input})
-        get_url = response["urls"]["get"]
-        working = True
-
-        while working:
-            response = self.get(get_url)
+        try:
+            response = self.post({"version": version, "input": input})
             print(response)
+            get_url = response["urls"]["get"]
+            working = True
 
-            if response["status"] == "succeeded":
-                return response["output"]
-            elif response["status"] == "processing" or response["status"] == "starting":
-                time.sleep(5)
-            else:
-                raise Exception(response)
+            while working:
+                response = self.get(get_url)
+                print(response)
 
-        return response
+                if response["status"] == "succeeded":
+                    return response["output"]
+                elif (
+                    response["status"] == "processing"
+                    or response["status"] == "starting"
+                ):
+                    time.sleep(5)
+                else:
+                    raise Exception(response)
+
+            return response
+        except Exception as e:
+            print(e)
+            return e
