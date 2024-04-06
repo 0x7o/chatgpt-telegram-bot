@@ -958,12 +958,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
             parse_mode=constants.ParseMode.HTML,
             reply_markup=telegram.ReplyKeyboardRemove(),
         )
-
-        asyncio.create_task(
-            self.generate_image(
-                update,
-                "39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
-                {
+        params = {
                     "width": 768,
                     "height": 768,
                     "prompt": context.user_data["prompt"],
@@ -977,8 +972,14 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
                     "negative_prompt": context.user_data["negative_prompt"],
                     "prompt_strength": 0.8,
                     "num_inference_steps": 25,
-                    "seed": seed,
-                },
+                }
+        if seed:
+            params["seed"] = seed
+        asyncio.create_task(
+            self.generate_image(
+                update,
+                "39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
+                params
             )
         )
 
@@ -1036,7 +1037,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
 
     async def bg_seed(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if message_text(update.message) == "Значение по умолчанию":
-            seed = None
+            seed = 0
         else:
             try:
                 seed = int(message_text(update.message))
@@ -1112,7 +1113,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
 
     async def in_seed(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if message_text(update.message) == "Значение по умолчанию":
-            seed = None
+            seed = 0
         else:
             try:
                 seed = int(message_text(update.message))
