@@ -136,10 +136,10 @@ class ChatGPTTelegramBot:
                 command="sticker",
                 description="😂 Стикер из фото",
             ),
-            BotCommand(
-                command="interior",
-                description="🏠 Дизайнер интерьера",
-            ),
+            # BotCommand(
+            #     command="interior",
+            #     description="🏠 Дизайнер интерьера",
+            # ),
             BotCommand(command="bg", description="Удалить фон"),
             BotCommand(
                 command="reset",
@@ -3184,21 +3184,21 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
             )
         )
         # interior
-        application.add_handler(
-            ConversationHandler(
-                entry_points=[CommandHandler("interior", self.interior)],
-                states={
-                    self.IN_PHOTO: [MessageHandler(filters.PHOTO, self.in_photo)],
-                    self.IN_PROMPT: [
-                        MessageHandler(filters.TEXT & ~filters.COMMAND, self.in_prompt)
-                    ],
-                    self.IN_SEED: [
-                        MessageHandler(filters.TEXT & ~filters.COMMAND, self.in_seed)
-                    ],
-                },
-                fallbacks=[CommandHandler("cancel", self.cancel)],
-            )
-        )
+        # application.add_handler(
+        #     ConversationHandler(
+        #         entry_points=[CommandHandler("interior", self.interior)],
+        #         states={
+        #             self.IN_PHOTO: [MessageHandler(filters.PHOTO, self.in_photo)],
+        #             self.IN_PROMPT: [
+        #                 MessageHandler(filters.TEXT & ~filters.COMMAND, self.in_prompt)
+        #             ],
+        #             self.IN_SEED: [
+        #                 MessageHandler(filters.TEXT & ~filters.COMMAND, self.in_seed)
+        #             ],
+        #         },
+        #         fallbacks=[CommandHandler("cancel", self.cancel)],
+        #     )
+        # )
         # application.add_handler(CommandHandler("sdxl", self.sdxl))
         # application.add_handler(CommandHandler("bg", self.bg))
         # application.add_handler(CommandHandler("sticker", self.sticker))
