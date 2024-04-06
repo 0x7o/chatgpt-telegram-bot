@@ -129,6 +129,10 @@ class ChatGPTTelegramBot:
                 description="🖼 Создать изображением со Stable Diffusion XL",
             ),
             BotCommand(
+                command="pg",
+                description="🖼 Генерация картинок PlayGround",
+            ),
+            BotCommand(
                 command="sticker",
                 description="😂 Стикер из фото",
             ),
@@ -188,6 +192,9 @@ class ChatGPTTelegramBot:
 
         self.STICKER_PHOTO = 3
         self.STICKER_PROMPT = 4
+
+        self.PG_PROMPT = 5
+        self.PG_PHOTO = 6
 
     async def start(self, update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         """
@@ -1020,7 +1027,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
             return
         await update.effective_message.reply_text(
             message_thread_id=get_thread_id(update),
-            text="""😂 Для генерации стикера, пожалуйста, <b>отправьте мне фотографию</b>\n\n/cancel - отмена""",
+            text="""Для генерации стикера, пожалуйста, <b>отправьте мне фотографию</b>\n\n/cancel - отмена""",
             parse_mode=constants.ParseMode.HTML,
         )
         return self.STICKER_PHOTO
@@ -1032,7 +1039,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
         context.user_data["photo_url"] = photo_url
         await update.effective_message.reply_text(
             message_thread_id=get_thread_id(update),
-            text="""😂 Теперь введите prompt для стикера на английском:\n\n/cancel - отмена""",
+            text="""Теперь введите prompt для стикера на английском:\n\n/cancel - отмена""",
             parse_mode=constants.ParseMode.HTML,
         )
         return self.STICKER_PROMPT
@@ -1047,7 +1054,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
 
         await update.effective_message.reply_text(
             message_thread_id=get_thread_id(update),
-            text="""😂 Ожидайте, идёт генерация вашего стикера...""",
+            text="""Ожидайте, идёт генерация вашего стикера...""",
             parse_mode=constants.ParseMode.HTML,
         )
 
@@ -1073,7 +1080,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
             await update.effective_message.reply_photo(
                 reply_to_message_id=get_reply_to_message_id(self.config, update),
                 photo=image_url[0],
-                caption="😂 Ваш стикер готов!\nЗапрос: " + message_text(update.message),
+                caption="Ваш стикер готов!\nЗапрос: " + message_text(update.message),
             )
             # списываем с баланса
             self.db.update_user_field(
@@ -1085,6 +1092,91 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
             self.usage[user_id].add_image_request(
                 "1024x1024", self.config["image_prices"]
             )
+        else:
+            await update.effective_message.reply_text(
+                message_thread_id=get_thread_id(update),
+                text=image_url.message,
+                parse_mode=constants.ParseMode.HTML,
+            )
+
+        return ConversationHandler.END
+
+    async def pg(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user, okay = await self.check_rate_limit(
+            update, update.effective_chat.id, "dalle_rate"
+        )
+
+        if not okay:
+            return
+        await update.effective_message.reply_text(
+            message_thread_id=get_thread_id(update),
+            text="""Для генерации PlayGround, пожалуйста, <b>отправьте мне фотографию для режима img2img</b>\n\n/cancel - отмена""",
+            parse_mode=constants.ParseMode.HTML,
+        )
+        return self.PG_PHOTO
+
+    async def pg_photo(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        photo = update.message.photo[-1]
+        photo_file = await context.bot.get_file(photo.file_id)
+        photo_url = photo_file.file_path
+        context.user_data["photo_url"] = photo_url
+        await update.effective_message.reply_text(
+            message_thread_id=get_thread_id(update),
+            text="""Теперь введите prompt для генерации на английском:\n\n/cancel - отмена""",
+            parse_mode=constants.ParseMode.HTML,
+        )
+        return self.PG_PROMPT
+
+    async def pg_prompt(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user, okay = await self.check_rate_limit(
+            update, update.effective_chat.id, "dalle_rate"
+        )
+
+        if not okay:
+            return
+
+        await update.effective_message.reply_text(
+            message_thread_id=get_thread_id(update),
+            text="""Ожидайте, идёт генерация вашего изображения...""",
+            parse_mode=constants.ParseMode.HTML,
+        )
+
+        image_url = self.replicate.run(
+            "a45f82a1382bed5c7aeb861dac7c7d191b0fdf74d8d57c4a0e6ed7d4d0bf7d24",
+            {
+                "width": 1024,
+                "height": 1024,
+                "prompt": message_text(update.message),
+                "scheduler": "DPMSolver++",
+                "num_outputs": 1,
+                "guidance_scale": 3,
+                "apply_watermark": False,
+                "negative_prompt": "ugly, deformed, noisy, blurry, distorted",
+                "prompt_strength": 0.8,
+                "num_inference_steps": 25,
+                "image": context.user_data["photo_url"],
+            }
+        )
+
+        if isinstance(image_url, list):
+            await update.effective_message.reply_photo(
+                reply_to_message_id=get_reply_to_message_id(self.config, update),
+                photo=image_url[0],
+                caption="Ваше изображение готово!\nЗапрос: " + message_text(update.message),
+            )
+            # списываем с баланса
+            self.db.update_user_field(
+                chat_id=update.message.from_user.id,
+                field_name="dalle_rate",
+                new_value=user.dalle_rate - 1,
+            )
+            try:
+                user_id = update.message.from_user.id
+                self.usage[user_id].add_image_request(
+                    "1024x1024", self.config["image_prices"]
+                )
+            except:
+                pass
         else:
             await update.effective_message.reply_text(
                 message_thread_id=get_thread_id(update),
@@ -2910,6 +3002,24 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
                     self.STICKER_PROMPT: [
                         MessageHandler(
                             filters.TEXT & ~filters.COMMAND, self.sticker_prompt
+                        )
+                    ],
+                },
+                fallbacks=[CommandHandler("cancel", self.cancel)],
+            )
+        )
+        application.add_handler(
+            ConversationHandler(
+                entry_points=[CommandHandler("pg", self.pg)],
+                states={
+                    self.PG_PHOTO: [
+                        MessageHandler(
+                            filters.PHOTO, self.pg_photo
+                        )
+                    ],
+                    self.PG_PROMPT: [
+                        MessageHandler(
+                            filters.TEXT & ~filters.COMMAND, self.pg_prompt
                         )
                     ],
                 },
