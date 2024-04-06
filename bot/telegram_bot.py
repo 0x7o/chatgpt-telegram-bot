@@ -136,6 +136,10 @@ class ChatGPTTelegramBot:
                 command="sticker",
                 description="😂 Стикер из фото",
             ),
+            BotCommand(
+                command="interior",
+                description="🏠 Дизайнер интерьера",
+            ),
             BotCommand(command="bg", description="Удалить фон"),
             BotCommand(
                 command="reset",
@@ -197,6 +201,11 @@ class ChatGPTTelegramBot:
         self.BG_PRODUCT = 8
         self.BG_PROMPT = 9
         self.BG_SEED = 10
+
+        self.IN_PHOTO = 11
+        self.IN_PROMPT = 12
+        self.IN_SEED = 13
+
 
     async def start(self, update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         """
@@ -1060,6 +1069,83 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
         )
         return ConversationHandler.END
 
+    async def interior(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user, okay = await self.check_rate_limit(
+            update, update.effective_chat.id, "dalle_rate"
+        )
+
+        if not okay:
+            return
+
+        await update.effective_message.reply_text(
+            message_thread_id=get_thread_id(update),
+            text="""Для генерации интерьера, пожалуйста, <b>отправьте мне фотографию исходника</b>\n\n/cancel - отмена""",
+            parse_mode=constants.ParseMode.HTML,
+        )
+        return self.IN_PHOTO
+
+    async def in_photo(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        photo = update.message.photo[-1]
+        photo_file = await context.bot.get_file(photo.file_id)
+        photo_url = photo_file.file_path
+        context.user_data["photo_url"] = photo_url
+        await update.effective_message.reply_text(
+            message_thread_id=get_thread_id(update),
+            text="""Теперь введите на английском то, в каком стиле нужно сгенерировать интерьер:\n\n/cancel - отмена""",
+            parse_mode=constants.ParseMode.HTML,
+        )
+        return self.IN_PROMPT
+
+    async def in_prompt(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        context.user_data["prompt"] = message_text(update.message)
+        await update.effective_message.reply_text(
+            message_thread_id=get_thread_id(update),
+            text="""Теперь введите seed или оставьте значение по умолчанию - 0:\n\n/cancel - отмена""",
+            parse_mode=constants.ParseMode.HTML,
+            reply_markup=telegram.ReplyKeyboardMarkup(
+                [["Значение по умолчанию"]],
+                one_time_keyboard=True,
+                input_field_placeholder="Значение по умолчанию",
+            ),
+        )
+        return self.IN_SEED
+
+    async def in_seed(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if message_text(update.message) == "Значение по умолчанию":
+            seed = 0
+        else:
+            try:
+                seed = int(message_text(update.message))
+            except ValueError:
+                await update.effective_message.reply_text(
+                    message_thread_id=get_thread_id(update),
+                    text="Пожалуйста, введите корректное число",
+                    parse_mode=constants.ParseMode.HTML,
+                )
+                return
+
+        await update.effective_message.reply_text(
+            message_thread_id=get_thread_id(update),
+            text="""Ожидайте, идёт генерация интерьера...""",
+            parse_mode=constants.ParseMode.HTML,
+            reply_markup=telegram.ReplyKeyboardRemove(),
+        )
+
+        asyncio.create_task(
+            self.generate_image(
+                update,
+                "f91971acb059a5b9e29bf3ad451c9bc4dc807a719427037a6623302ddc598e35",
+                {
+                    "seed": seed,
+                    "steps": 10,
+                    "width": 768,
+                    "image": context.user_data["photo_url"],
+                    "prompt": context.user_data["prompt"],
+                }
+            )
+        )
+        return ConversationHandler.END
+
     async def generate_image(
         self,
         update: Update,
@@ -1083,7 +1169,10 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
             )
             data = None
             if isinstance(image_url, str):
-                data = image_url
+                if image_url.startswith("https://") or image_url.startswith("http://"):
+                    data = image_url
+                else:
+                    raise Exception(json.loads(image_url)["logs"])
             elif isinstance(image_url, list):
                 data = image_url[0]
             elif isinstance(image_url, Exception):
@@ -3089,6 +3178,22 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
                     ],
                     self.BG_SEED: [
                         MessageHandler(filters.TEXT & ~filters.COMMAND, self.bg_seed)
+                    ],
+                },
+                fallbacks=[CommandHandler("cancel", self.cancel)],
+            )
+        )
+        # interior
+        application.add_handler(
+            ConversationHandler(
+                entry_points=[CommandHandler("interior", self.interior)],
+                states={
+                    self.IN_PHOTO: [MessageHandler(filters.PHOTO, self.in_photo)],
+                    self.IN_PROMPT: [
+                        MessageHandler(filters.TEXT & ~filters.COMMAND, self.in_prompt)
+                    ],
+                    self.IN_SEED: [
+                        MessageHandler(filters.TEXT & ~filters.COMMAND, self.in_seed)
                     ],
                 },
                 fallbacks=[CommandHandler("cancel", self.cancel)],
