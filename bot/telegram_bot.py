@@ -940,7 +940,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
             return
 
         if message_text(update.message) == "Значение по умолчанию":
-            seed = 0
+            seed = None
         else:
             try:
                 seed = int(message_text(update.message))
@@ -1036,7 +1036,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
 
     async def bg_seed(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if message_text(update.message) == "Значение по умолчанию":
-            seed = 0
+            seed = None
         else:
             try:
                 seed = int(message_text(update.message))
@@ -1112,7 +1112,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
 
     async def in_seed(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if message_text(update.message) == "Значение по умолчанию":
-            seed = 0
+            seed = None
         else:
             try:
                 seed = int(message_text(update.message))
