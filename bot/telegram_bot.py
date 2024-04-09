@@ -116,40 +116,36 @@ class ChatGPTTelegramBot:
                 command="help",
                 description=localized_text("help_description", bot_language),
             ),
+            BotCommand(command="assistant", description="🤖 Сменить ассистента"),
             BotCommand(
-                command="support",
-                description=localized_text("support_description", bot_language),
+                command="image",
+                description=localized_text("image_description", bot_language),
             ),
             BotCommand(
                 command="model",
-                description="🤖 Сменить версию модели (только для тарифа GPT-4)",
+                description="🤖 Поменять версию модели",
             ),
             BotCommand(
                 command="sdxl",
-                description="🖼 Создать изображением со Stable Diffusion XL",
+                description="🖼 Создать изображение со Stable Diffusion XL",
             ),
+            BotCommand(
+                command="voice",
+                description=localized_text("tts_description", bot_language),
+            ),
+            BotCommand(
+                command="sticker",
+                description="🔖 Создать стикер из фото",
+            ),
+            BotCommand(command="bg", description="Удалить фон"),
             BotCommand(
                 command="pg",
                 description="🖼 Генерация картинок PlayGround",
             ),
             BotCommand(
-                command="sticker",
-                description="😂 Стикер из фото",
-            ),
-            # BotCommand(
-            #     command="interior",
-            #     description="🏠 Дизайнер интерьера",
-            # ),
-            BotCommand(command="bg", description="Удалить фон"),
-            BotCommand(
                 command="reset",
                 description=localized_text("reset_description", bot_language),
             ),
-            BotCommand(
-                command="stats",
-                description=localized_text("stats_description", bot_language),
-            ),
-            BotCommand(command="assistant", description="🤖 Сменить ассистента"),
             BotCommand(
                 command="resend",
                 description=localized_text("resend_description", bot_language),
@@ -158,23 +154,19 @@ class ChatGPTTelegramBot:
                 command="pay",
                 description="💰 Обновить тариф",
             ),
+            # BotCommand(
+            #     command="interior",
+            #     description="🏠 Дизайнер интерьера",
+            # ),
+            BotCommand(
+                command="stats",
+                description=localized_text("stats_description", bot_language),
+            ),
+            BotCommand(
+                command="support",
+                description=localized_text("support_description", bot_language),
+            ),
         ]
-        # If imaging is enabled, add the "image" command to the list
-        if self.config.get("enable_image_generation", False):
-            self.commands.append(
-                BotCommand(
-                    command="image",
-                    description=localized_text("image_description", bot_language),
-                )
-            )
-
-        if self.config.get("enable_tts_generation", False):
-            self.commands.append(
-                BotCommand(
-                    command="voice",
-                    description=localized_text("tts_description", bot_language),
-                )
-            )
 
         self.group_commands = [
             BotCommand(
@@ -205,7 +197,6 @@ class ChatGPTTelegramBot:
         self.IN_PHOTO = 11
         self.IN_PROMPT = 12
         self.IN_SEED = 13
-
 
     async def start(self, update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         """
@@ -891,7 +882,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
 
         await update.effective_message.reply_text(
             message_thread_id=get_thread_id(update),
-            text="""🎨 Для генерации изображений, пожалуйста, <b>введите prompt на английском:</b>\n\n/cancel - отмена""",
+            text="""🎨 Для генерации изображений, пожалуйста, <b>введите описание картинки на английском языке:</b>\n\n/cancel - отмена""",
             parse_mode=constants.ParseMode.HTML,
         )
         return self.SDXL_PROMPT
@@ -900,7 +891,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
         context.user_data["prompt"] = message_text(update.message)
         await update.effective_message.reply_text(
             message_thread_id=get_thread_id(update),
-            text="""🎨 Теперь введите negative prompt или оставьте значение по умолчанию - <b>ugly, deformed, noisy, blurry, distorted</b>:\n\n/cancel - отмена""",
+            text="""🎨 Теперь введите то, что <b>точно НЕ хотите видеть на картинке</b>, или нажмите <b>Значение по умолчанию</b>, чтобы продолжить\n\n/cancel - отмена""",
             parse_mode=constants.ParseMode.HTML,
             reply_markup=telegram.ReplyKeyboardMarkup(
                 [["Значение по умолчанию"]],
@@ -921,7 +912,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
             context.user_data["negative_prompt"] = message_text(update.message)
         await update.effective_message.reply_text(
             message_thread_id=get_thread_id(update),
-            text="""🎨 Теперь введите seed или оставьте значение по умолчанию - 0:\n\n/cancel - отмена""",
+            text="""🎨 Теперь введите seed, или нажмите <b>Значение по умолчанию</b>, чтобы продолжить\n\n/cancel - отмена""",
             parse_mode=constants.ParseMode.HTML,
             reply_markup=telegram.ReplyKeyboardMarkup(
                 [["Значение по умолчанию"]],
@@ -959,27 +950,27 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
             reply_markup=telegram.ReplyKeyboardRemove(),
         )
         params = {
-                    "width": 768,
-                    "height": 768,
-                    "prompt": context.user_data["prompt"],
-                    "refine": "expert_ensemble_refiner",
-                    "scheduler": "K_EULER",
-                    "lora_scale": 0.6,
-                    "num_outputs": 1,
-                    "guidance_scale": 7.5,
-                    "apply_watermark": False,
-                    "high_noise_frac": 0.8,
-                    "negative_prompt": context.user_data["negative_prompt"],
-                    "prompt_strength": 0.8,
-                    "num_inference_steps": 25,
-                }
+            "width": 768,
+            "height": 768,
+            "prompt": context.user_data["prompt"],
+            "refine": "expert_ensemble_refiner",
+            "scheduler": "K_EULER",
+            "lora_scale": 0.6,
+            "num_outputs": 1,
+            "guidance_scale": 7.5,
+            "apply_watermark": False,
+            "high_noise_frac": 0.8,
+            "negative_prompt": context.user_data["negative_prompt"],
+            "prompt_strength": 0.8,
+            "num_inference_steps": 25,
+        }
         if seed:
             params["seed"] = seed
         asyncio.create_task(
             self.generate_image(
                 update,
                 "39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
-                params
+                params,
             )
         )
 
@@ -1142,7 +1133,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
                     "width": 768,
                     "image": context.user_data["photo_url"],
                     "prompt": context.user_data["prompt"],
-                }
+                },
             )
         )
         return ConversationHandler.END
@@ -1230,7 +1221,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
         context.user_data["photo_url"] = photo_url
         await update.effective_message.reply_text(
             message_thread_id=get_thread_id(update),
-            text="""Теперь введите prompt для стикера на английском:\n\n/cancel - отмена""",
+            text="""Отлично! Теперь <b>введите описание</b> для вашего будущего стикера - что персонаж делает, и тд <b>на английском языке:</b>\n\n/cancel - отмена""",
             parse_mode=constants.ParseMode.HTML,
         )
         return self.STICKER_PROMPT
@@ -1977,7 +1968,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
             )
         else:
             await update.message.reply_text(
-                "❌ Сменить модель можно только на тарифе GPT-4",
+                "❌ Поменять модель можно только на тарифе GPT-4\n\nПожалуйста, обновите свой тариф, нажав кнопку ниже",
                 reply_markup=InlineKeyboardMarkup(
                     [
                         [
@@ -2415,7 +2406,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
                 return
             if user.rate_type != "gpt-4":
                 await update.get_bot().send_message(
-                    text="❌ Сменить модель можно только на тарифе GPT-4",
+                    text="❌ Поменять модель можно только на тарифе GPT-4\n\nПожалуйста, обновите свой тариф, нажав кнопку ниже",
                     chat_id=update.callback_query.from_user.id,
                     reply_markup=InlineKeyboardMarkup(
                         [
