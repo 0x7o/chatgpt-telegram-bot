@@ -116,7 +116,10 @@ class ChatGPTTelegramBot:
                 command="help",
                 description=localized_text("help_description", bot_language),
             ),
-            BotCommand(command="assistant", description="🤖 Сменить ассистента"),
+            BotCommand(command="assistant", description="🤖 Сменить ассистента"),BotCommand(
+                command="reset",
+                description=localized_text("reset_description", bot_language),
+            ),
             BotCommand(
                 command="image",
                 description=localized_text("image_description", bot_language),
@@ -142,10 +145,7 @@ class ChatGPTTelegramBot:
                 command="pg",
                 description="🖼 Генерация картинок PlayGround",
             ),
-            BotCommand(
-                command="reset",
-                description=localized_text("reset_description", bot_language),
-            ),
+
             BotCommand(
                 command="resend",
                 description=localized_text("resend_description", bot_language),
@@ -1272,16 +1272,32 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
             return
         await update.effective_message.reply_text(
             message_thread_id=get_thread_id(update),
-            text="""Для генерации PlayGround, пожалуйста, <b>отправьте мне фотографию для режима img2img</b>\n\n/cancel - отмена""",
+            text="""Для генерации PlayGround, пожалуйста, <b>отправьте мне фотографию для режима img2img</b> или пропустите этот шаг\n\n/cancel - отмена""",
             parse_mode=constants.ParseMode.HTML,
+            reply_markup=telegram.ReplyKeyboardMarkup(
+                [["Пропустить"]],
+                one_time_keyboard=True,
+                input_field_placeholder="Пропустить",
+            ),
         )
         return self.PG_PHOTO
 
     async def pg_photo(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        photo = update.message.photo[-1]
-        photo_file = await context.bot.get_file(photo.file_id)
-        photo_url = photo_file.file_path
-        context.user_data["photo_url"] = photo_url
+        if update.message.text == "Пропустить":
+            context.user_data["photo_url"] = None
+        else:
+            try:
+                photo = update.message.photo[-1]
+            except:
+                await update.effective_message.reply_text(
+                    message_thread_id=get_thread_id(update),
+                    text="""Отправьте фотографию или напишите 'Пропустить'""",
+                    parse_mode=constants.ParseMode.HTML,
+                )
+                return self.PG_PHOTO
+            photo_file = await context.bot.get_file(photo.file_id)
+            photo_url = photo_file.file_path
+            context.user_data["photo_url"] = photo_url
         await update.effective_message.reply_text(
             message_thread_id=get_thread_id(update),
             text="""Теперь введите prompt для генерации на английском:\n\n/cancel - отмена""",
@@ -1302,24 +1318,27 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
             text="""Ожидайте, идёт генерация вашего изображения...""",
             parse_mode=constants.ParseMode.HTML,
         )
+        params = {
+            "width": 1024,
+            "height": 1024,
+            "prompt": message_text(update.message),
+            "scheduler": "DPMSolver++",
+            "num_outputs": 1,
+            "guidance_scale": 3,
+            "apply_watermark": False,
+            "negative_prompt": "ugly, deformed, noisy, blurry, distorted",
+            "prompt_strength": 0.8,
+            "num_inference_steps": 25,
+        }
+
+        if context.user_data["photo_url"]:
+            params["image"] = context.user_data["photo_url"]
 
         asyncio.create_task(
             self.generate_image(
                 update,
                 "a45f82a1382bed5c7aeb861dac7c7d191b0fdf74d8d57c4a0e6ed7d4d0bf7d24",
-                {
-                    "width": 1024,
-                    "height": 1024,
-                    "prompt": message_text(update.message),
-                    "scheduler": "DPMSolver++",
-                    "num_outputs": 1,
-                    "guidance_scale": 3,
-                    "apply_watermark": False,
-                    "negative_prompt": "ugly, deformed, noisy, blurry, distorted",
-                    "prompt_strength": 0.8,
-                    "num_inference_steps": 25,
-                    "image": context.user_data["photo_url"],
-                },
+                params,
             )
         )
 
@@ -3149,7 +3168,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
             ConversationHandler(
                 entry_points=[CommandHandler("pg", self.pg)],
                 states={
-                    self.PG_PHOTO: [MessageHandler(filters.PHOTO, self.pg_photo)],
+                    self.PG_PHOTO: [MessageHandler(filters.PHOTO | filters.TEXT, self.pg_photo)],
                     self.PG_PROMPT: [
                         MessageHandler(filters.TEXT & ~filters.COMMAND, self.pg_prompt)
                     ],
