@@ -2368,7 +2368,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
                 f"Изображений: {rate['dalle_rate']}\n"
                 f"Речь в текст: {rate['whisper_rate']} минут\n"
                 f"Озвучка: {rate['tts_rate']} символов\n"
-                f"Стоимость: {rate['price']} рублей / месяц\n"
+                f"Стоимость: {rate['price']} рублей\n"
                 f"----------------------------\n"
             )
             for idx, rate in enumerate(self.rates.values())
@@ -2688,7 +2688,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
                     f"Изображений: {rate['dalle_rate']}\n"
                     f"Речь в текст: {rate['whisper_rate']} минут\n"
                     f"Озвучка: {rate['tts_rate']} символов\n"
-                    f"Стоимость: {rate['price']} рублей / месяц\n"
+                    f"Стоимость: {rate['price']} рублей\n"
                     f"----------------------------\n"
                 )
                 for idx, rate in enumerate(self.rates.values())
