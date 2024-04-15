@@ -551,9 +551,6 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
                         chat_id=user["chat_id"], text=message
                     )
             except Exception as e:
-                await update.message.reply_text(
-                    f"Не удалось отправить сообщение пользователю {user['chat_id']}"
-                )
                 logging.exception(e)
 
         await update.message.reply_text("Сообщения успешно отправлены")
