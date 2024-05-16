@@ -76,7 +76,7 @@ def model_keyboard(default_model: str) -> InlineKeyboardMarkup:
         [
             [
                 InlineKeyboardButton(
-                    text="✅ GPT-4o" if default_model == "gpt35" else "GPT-3.5",
+                    text="✅ GPT-4o" if default_model == "gpt35" else "GPT-4o",
                     callback_data="change_model_gpt35",
                 ),
                 InlineKeyboardButton(
