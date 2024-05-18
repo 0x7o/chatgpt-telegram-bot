@@ -151,8 +151,7 @@ async def edit_message_with_retry(
     :return: None
     """
     pattern = r'^###\s+'
-    if markdown:
-        text = re.sub(pattern, '', text, flags=re.MULTILINE)
+    text = re.sub(pattern, '', text, flags=re.MULTILINE)
     try:
         await context.bot.edit_message_text(
             chat_id=chat_id,
