@@ -2159,8 +2159,6 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
                             except:
                                 pass
                             try:
-                                pattern = r'^###\s+'
-                                content = re.sub(pattern, '', content, flags=re.MULTILINE)
                                 sent_message = (
                                     await update.effective_message.reply_text(
                                         message_thread_id=get_thread_id(update),

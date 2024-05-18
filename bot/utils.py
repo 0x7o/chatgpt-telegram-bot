@@ -150,8 +150,8 @@ async def edit_message_with_retry(
     :param is_inline: Whether the message to edit is an inline message
     :return: None
     """
-    pattern = r'^###\s+'
-    text = re.sub(pattern, '', text, flags=re.MULTILINE)
+    pattern = r'^#{1,6}\s*(.*)$'
+    text = re.sub(pattern, r'\1', text, flags=re.MULTILINE)
     try:
         await context.bot.edit_message_text(
             chat_id=chat_id,
