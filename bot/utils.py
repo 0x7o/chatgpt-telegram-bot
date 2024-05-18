@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import base64
+import re
 
 import telegram
 from telegram import Message, MessageEntity, Update, ChatMember, constants
@@ -149,6 +150,9 @@ async def edit_message_with_retry(
     :param is_inline: Whether the message to edit is an inline message
     :return: None
     """
+    pattern = r'^###\s+'
+    if markdown:
+        text = re.sub(pattern, '', text, flags=re.MULTILINE)
     try:
         await context.bot.edit_message_text(
             chat_id=chat_id,
