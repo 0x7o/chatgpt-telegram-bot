@@ -6,7 +6,6 @@ import json
 import logging
 import os
 import io
-import re
 
 import aiohttp
 import random
@@ -78,13 +77,13 @@ def model_keyboard(default_model: str) -> InlineKeyboardMarkup:
         [
             [
                 InlineKeyboardButton(
-                    text="✅ GPT-4o" if default_model == "gpt35" else "GPT-4o",
+                    text="✅ GPT-3.5" if default_model == "gpt35" else "GPT-3.5",
                     callback_data="change_model_gpt35",
                 ),
                 InlineKeyboardButton(
-                    text="✅ GPT-4 Turbo"
+                    text="✅ GPT-4o"
                     if default_model == "gpt4_turbo"
-                    else "GPT-4 Turbo",
+                    else "GPT-4o",
                     callback_data="change_model_gpt4_turbo",
                 ),
             ]
@@ -712,9 +711,9 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
             f"<b>Ваш тариф: {self.rates[user.rate_type]['name']}</b>\n\n"
         )
         if self.rates[user.rate_type]["gpt4_rate"]:
-            text_budget += f"<b>Токенов GPT-4 осталось:</b> {user.gpt4_rate} из {self.rates[user.rate_type]['gpt4_rate']}\n"
+            text_budget += f"<b>Токенов GPT-4o осталось:</b> {user.gpt4_rate} из {self.rates[user.rate_type]['gpt4_rate']}\n"
         text_budget += (
-            f"<b>Токенов GPT-4o осталось:</b> {user.gpt35_rate} из {self.rates[user.rate_type]['gpt35_rate']}\n"
+            f"<b>Токенов GPT-3.5 осталось:</b> {user.gpt35_rate} из {self.rates[user.rate_type]['gpt35_rate']}\n"
             f"<b>Изображений осталось:</b> {user.dalle_rate} из {self.rates[user.rate_type]['dalle_rate']}\n"
             f"<b>Речь в текст осталось:</b> {user.whisper_rate} из {self.rates[user.rate_type]['whisper_rate']}\n"
             f"<b>Озвучка осталось:</b> {user.tts_rate} из {self.rates[user.rate_type]['tts_rate']}\n"
@@ -1975,7 +1974,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
 
     async def model(self, update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         """
-        Change model (GPT-3.5 or GPT-4)
+        Change model (GPT-3.5 or GPT-4o)
         """
         user = self.db.get_user(chat_id=update.effective_chat.id)
         if user.rate_type == "gpt-4":
@@ -2362,8 +2361,8 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
         rates_text = [
             (
                 f"*{idx + 1}. {rate['name']}*\n"
-                f"Токенов GPT-4: {rate['gpt4_rate'] if rate['gpt4_rate'] else 'нет'}\n"
-                f"Токенов GPT-4o: {rate['gpt35_rate']}\n"
+                f"Токенов GPT-4o: {rate['gpt4_rate'] if rate['gpt4_rate'] else 'нет'}\n"
+                f"Токенов GPT-3.5: {rate['gpt35_rate']}\n"
                 f"Изображений: {rate['dalle_rate']}\n"
                 f"Речь в текст: {rate['whisper_rate']} минут\n"
                 f"Озвучка: {rate['tts_rate']} символов\n"
@@ -2682,8 +2681,8 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
             rates_text = [
                 (
                     f"*{idx + 1}. {rate['name']}*\n"
-                    f"Токенов GPT-4: {rate['gpt4_rate'] if rate['gpt4_rate'] else 'нет'}\n"
-                    f"Токенов GPT-4o: {rate['gpt35_rate']}\n"
+                    f"Токенов GPT-4o: {rate['gpt4_rate'] if rate['gpt4_rate'] else 'нет'}\n"
+                    f"Токенов GPT-3.5: {rate['gpt35_rate']}\n"
                     f"Изображений: {rate['dalle_rate']}\n"
                     f"Речь в текст: {rate['whisper_rate']} минут\n"
                     f"Озвучка: {rate['tts_rate']} символов\n"

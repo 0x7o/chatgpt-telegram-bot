@@ -345,11 +345,11 @@ class OpenAIHelper:
             else:
                 if user.rate_type == "gpt-4":
                     if user.default_model == "gpt35":
-                        common_args["model"] = "gpt-4o"
+                        common_args["model"] = "gpt-3.5-turbo"
                     else:
-                        common_args["model"] = "gpt-4-1106-preview"
+                        common_args["model"] = "gpt-4o"
                 else:
-                    common_args["model"] = "gpt-4o"
+                    common_args["model"] = "gpt-3.5-turbo"
 
             if (
                 self.config["enable_functions"]
