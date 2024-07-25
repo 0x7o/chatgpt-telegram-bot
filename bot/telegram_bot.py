@@ -1723,13 +1723,24 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
             await self.bg(update, context)
             return
 
-        # Проверяем действительность тарифа
-        user, okay = await self.check_rate_limit(
-            update, update.effective_chat.id, "gpt4_rate"
-        )
+        user = self.db.get_user(chat_id=update.effective_chat.id)
 
-        if not okay:
-            return
+        # Проверяем действительность тарифа
+        if user.rate_type == "gpt-4":
+            user, okay = await self.check_rate_limit(
+                update, update.effective_chat.id, "gpt4_rate"
+            )
+
+            if not okay:
+                return
+        else:
+            if user.rate_type == "gpt-4":
+                user, okay = await self.check_rate_limit(
+                    update, update.effective_chat.id, "gpt35_rate"
+                )
+
+                if not okay:
+                    return
 
         chat_id = update.effective_chat.id
         prompt = update.message.caption
