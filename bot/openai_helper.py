@@ -27,12 +27,12 @@ GPT_4_32K_MODELS = ("gpt-4-32k", "gpt-4-32k-0314", "gpt-4-32k-0613")
 GPT_4_VISION_MODELS = ("gpt-4o",)
 GPT_4_128K_MODELS = ("gpt-4-1106-preview",)
 GPT_ALL_MODELS = (
-    GPT_3_MODELS
-    + GPT_3_16K_MODELS
-    + GPT_4_MODELS
-    + GPT_4_32K_MODELS
-    + GPT_4_VISION_MODELS
-    + GPT_4_128K_MODELS
+        GPT_3_MODELS
+        + GPT_3_16K_MODELS
+        + GPT_4_MODELS
+        + GPT_4_32K_MODELS
+        + GPT_4_VISION_MODELS
+        + GPT_4_128K_MODELS
 )
 
 
@@ -68,12 +68,12 @@ def are_functions_available(model: str) -> bool:
         return False
     # Stable models will be updated to support functions on June 27, 2023
     if model in (
-        "gpt-3.5-turbo",
-        "gpt-3.5-turbo-1106",
-        "gpt-4",
-        "gpt-4-32k",
-        "gpt-4-1106-preview",
-        "gpt-4o"
+            "gpt-3.5-turbo",
+            "gpt-3.5-turbo-1106",
+            "gpt-4",
+            "gpt-4-32k",
+            "gpt-4-1106-preview",
+            "gpt-4o"
     ):
         return datetime.date.today() > datetime.date(2023, 6, 27)
     if model == "gpt-4-vision-preview":
@@ -152,7 +152,7 @@ class OpenAIHelper:
     """
 
     def __init__(
-        self, config: dict, plugin_manager: PluginManager, db: DB, telegram_config: dict
+            self, config: dict, plugin_manager: PluginManager, db: DB, telegram_config: dict
     ):
         """
         Initializes the OpenAI helper class with the given configuration.
@@ -301,10 +301,10 @@ class OpenAIHelper:
             # Summarize the chat history if it's too long to avoid excessive token usage
             token_count = self.__count_tokens(self.conversations[chat_id])
             exceeded_max_tokens = (
-                token_count + self.config["max_tokens"] > self.__max_model_tokens()
+                    token_count + self.config["max_tokens"] > self.__max_model_tokens()
             )
             exceeded_max_history_size = (
-                len(self.conversations[chat_id]) > self.config["max_history_size"]
+                    len(self.conversations[chat_id]) > self.config["max_history_size"]
             )
 
             if exceeded_max_tokens or exceeded_max_history_size:
@@ -324,8 +324,8 @@ class OpenAIHelper:
                         f"Error while summarising chat history: {str(e)}. Popping elements instead..."
                     )
                     self.conversations[chat_id] = self.conversations[chat_id][
-                        -self.config["max_history_size"] :
-                    ]
+                                                  -self.config["max_history_size"]:
+                                                  ]
 
             common_args = {
                 "model": self.config["model"]
@@ -352,8 +352,8 @@ class OpenAIHelper:
                     common_args["model"] = "gpt-4o-mini"
 
             if (
-                self.config["enable_functions"]
-                and not self.conversations_vision[chat_id]
+                    self.config["enable_functions"]
+                    and not self.conversations_vision[chat_id]
             ):
                 functions = self.plugin_manager.get_functions_specs()
                 if len(functions) > 0:
@@ -377,7 +377,7 @@ class OpenAIHelper:
             ) from e
 
     async def __handle_function_call(
-        self, chat_id, response, stream=False, times=0, plugins_used=()
+            self, chat_id, response, stream=False, times=0, plugins_used=()
     ):
         function_name = ""
         arguments = ""
@@ -391,8 +391,8 @@ class OpenAIHelper:
                         if first_choice.delta.function_call.arguments:
                             arguments += first_choice.delta.function_call.arguments
                     elif (
-                        first_choice.finish_reason
-                        and first_choice.finish_reason == "function_call"
+                            first_choice.finish_reason
+                            and first_choice.finish_reason == "function_call"
                     ):
                         break
                     else:
@@ -531,7 +531,7 @@ class OpenAIHelper:
         stop=stop_after_attempt(3),
     )
     async def __common_get_chat_response_vision(
-        self, chat_id: int, content: list, stream=False
+            self, chat_id: int, content: list, stream=False
     ):
         """
         Request a response from the GPT model.
@@ -559,10 +559,10 @@ class OpenAIHelper:
             # Summarize the chat history if it's too long to avoid excessive token usage
             token_count = self.__count_tokens(self.conversations[chat_id])
             exceeded_max_tokens = (
-                token_count + self.config["max_tokens"] > self.__max_model_tokens()
+                    token_count + self.config["max_tokens"] > self.__max_model_tokens()
             )
             exceeded_max_history_size = (
-                len(self.conversations[chat_id]) > self.config["max_history_size"]
+                    len(self.conversations[chat_id]) > self.config["max_history_size"]
             )
 
             if exceeded_max_tokens or exceeded_max_history_size:
@@ -583,10 +583,12 @@ class OpenAIHelper:
                         f"Error while summarising chat history: {str(e)}. Popping elements instead..."
                     )
                     self.conversations[chat_id] = self.conversations[chat_id][
-                        -self.config["max_history_size"] :
-                    ]
+                                                  -self.config["max_history_size"]:
+                                                  ]
 
             message = {"role": "user", "content": content}
+
+            user = self.db.get_user(chat_id)
 
             common_args = {
                 "model": self.config["vision_model"],
@@ -598,6 +600,11 @@ class OpenAIHelper:
                 "frequency_penalty": self.config["frequency_penalty"],
                 "stream": stream,
             }
+
+            if user.rate_type == "gpt-4":
+                common_args["model"] = "gpt-4o"
+            else:
+                common_args["model"] = "gpt-4o-mini"
 
             # vision model does not yet support functions
 
@@ -829,8 +836,8 @@ class OpenAIHelper:
             )
             tokens_per_name = -1  # if there's a name, the role is omitted
         elif (
-            model
-            in GPT_4_MODELS + GPT_4_32K_MODELS + GPT_4_VISION_MODELS + GPT_4_128K_MODELS
+                model
+                in GPT_4_MODELS + GPT_4_32K_MODELS + GPT_4_VISION_MODELS + GPT_4_128K_MODELS
         ):
             tokens_per_message = 3
             tokens_per_name = 1
