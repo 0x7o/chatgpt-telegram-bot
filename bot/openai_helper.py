@@ -345,11 +345,11 @@ class OpenAIHelper:
             else:
                 if user.rate_type == "gpt-4":
                     if user.default_model == "gpt35":
-                        common_args["model"] = "gpt-3.5-turbo"
+                        common_args["model"] = "gpt-4o-mini"
                     else:
                         common_args["model"] = "gpt-4o"
                 else:
-                    common_args["model"] = "gpt-3.5-turbo"
+                    common_args["model"] = "gpt-4o-mini"
 
             if (
                 self.config["enable_functions"]
@@ -821,7 +821,7 @@ class OpenAIHelper:
         try:
             encoding = tiktoken.encoding_for_model(model)
         except KeyError:
-            encoding = tiktoken.get_encoding("gpt-3.5-turbo")
+            encoding = tiktoken.get_encoding("gpt-4o-mini")
 
         if model in GPT_3_MODELS + GPT_3_16K_MODELS:
             tokens_per_message = (

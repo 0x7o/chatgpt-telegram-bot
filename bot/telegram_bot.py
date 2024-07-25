@@ -77,7 +77,7 @@ def model_keyboard(default_model: str) -> InlineKeyboardMarkup:
         [
             [
                 InlineKeyboardButton(
-                    text="✅ GPT-3.5" if default_model == "gpt35" else "GPT-3.5",
+                    text="✅ GPT-4o-mini" if default_model == "gpt35" else "GPT-4o-mini",
                     callback_data="change_model_gpt35",
                 ),
                 InlineKeyboardButton(
@@ -713,7 +713,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
         if self.rates[user.rate_type]["gpt4_rate"]:
             text_budget += f"<b>Токенов GPT-4o осталось:</b> {user.gpt4_rate} из {self.rates[user.rate_type]['gpt4_rate']}\n"
         text_budget += (
-            f"<b>Токенов GPT-3.5 осталось:</b> {user.gpt35_rate} из {self.rates[user.rate_type]['gpt35_rate']}\n"
+            f"<b>Токенов GPT-4o-mini осталось:</b> {user.gpt35_rate} из {self.rates[user.rate_type]['gpt35_rate']}\n"
             f"<b>Изображений осталось:</b> {user.dalle_rate} из {self.rates[user.rate_type]['dalle_rate']}\n"
             f"<b>Речь в текст осталось:</b> {user.whisper_rate} из {self.rates[user.rate_type]['whisper_rate']}\n"
             f"<b>Озвучка осталось:</b> {user.tts_rate} из {self.rates[user.rate_type]['tts_rate']}\n"
@@ -2362,7 +2362,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
             (
                 f"*{idx + 1}. {rate['name']}*\n"
                 f"Токенов GPT-4o: {rate['gpt4_rate'] if rate['gpt4_rate'] else 'нет'}\n"
-                f"Токенов GPT-3.5: {rate['gpt35_rate']}\n"
+                f"Токенов GPT-4o-mini: {rate['gpt35_rate']}\n"
                 f"Изображений: {rate['dalle_rate']}\n"
                 f"Речь в текст: {rate['whisper_rate']} минут\n"
                 f"Озвучка: {rate['tts_rate']} символов\n"
@@ -2682,7 +2682,7 @@ https://telegra.ph/Spisok-promtov-i-zaprosov-dlya-II--nejroskrajb-02-23
                 (
                     f"*{idx + 1}. {rate['name']}*\n"
                     f"Токенов GPT-4o: {rate['gpt4_rate'] if rate['gpt4_rate'] else 'нет'}\n"
-                    f"Токенов GPT-3.5: {rate['gpt35_rate']}\n"
+                    f"Токенов GPT-4o-mini: {rate['gpt35_rate']}\n"
                     f"Изображений: {rate['dalle_rate']}\n"
                     f"Речь в текст: {rate['whisper_rate']} минут\n"
                     f"Озвучка: {rate['tts_rate']} символов\n"
